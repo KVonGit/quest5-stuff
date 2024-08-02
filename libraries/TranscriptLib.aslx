@@ -1,0 +1,93 @@
+<?xml version="1.0"?>
+
+<!-- 
+    TranscriptLib
+	version 1
+	
+	INSTRUCTION:
+	
+	You MUST add this to your "User Interface Initialisation" script: SendToJsEval(transcript_object.js)
+	
+-->
+<library>
+	<object name="transcript_object">
+	  <js><![CDATA[
+		var clearedOnce = false;
+		clearScreen = function () {
+		  $(\"#divOutput\").append(\"<hr class='clearedAbove' />\");
+		  if (!clearedOnce) {
+			addText('<style>#divOutput > .clearedScreen { display: none; }</style>');
+		  }
+		  clearedOnce = true;
+		  $('#divOutput').children().addClass('clearedScreen');
+		  $('#divOutput').css('min-height', 0);
+		  createNewDiv('left');
+		  beginningOfCurrentTurnScrollPosition = 0;
+		  setTimeout(function () {
+			$('html,body').scrollTop(0);
+		  }, 100);
+		};
+		function showTranscript() {
+			var txt = $('#divOutput').html();
+			var transcriptDivString = \"\";
+			transcriptDivString += \"<div id='transcript-container' style='display:none;'>\";
+			transcriptDivString += \"<center><button onclick='print();'>PRINT</button>\";
+			transcriptDivString += \"<button onclick='returnToGame()'>RETURN TO THE GAME</button></center><hr/>\";
+			transcriptDivString += \"<div id='transcriptdata'></div></div>\";
+			addText(transcriptDivString);
+			$('#transcriptdata').html(txt); 
+			uiHide(\"#gameBorder\");
+			bodyBackgroundBak = $('body').css('background');
+			$('body').css('background','white');
+			bodyColorBak = $('body').css('color');
+			$('body').css('color','black');
+			$('body').append($('#transcript-container'));
+			$(\"#transcriptdata\").attr('style', 'padding:12px;');
+			$(\"#transcriptdata *\").attr('style','');
+			$(\"#transcriptdata a\").addClass(\"disabled\");
+			$(\"#transcript-container, #transcriptdata *\").show().css({'background':'white !important','color':'black !important'});
+		};
+		function returnToGame(){
+			$('#transcript-container').remove();
+			$('body').css({'background':bodyBackgroundBak,'color':bodyColorBak});
+			uiShow('#gameBorder');
+		};
+	  ]]></js>
+	</object>
+
+  <command name="view_transcript_cmd">
+    <pattern>transcript;script;view script;view transcript;display transcript;view the transcript;display the transcript</pattern>
+    <script>
+      game.notarealturn = true
+      JS.showTranscript ()
+    </script>
+  </command>
+  
+    <function name="SendToJsEval" parameters="data"><![CDATA[
+      regEx = "//"
+      js = Split(data,"<br/>")
+      notes = NewStringList()
+      foreach (line, js) {
+        if (StartsWith(line,"//")) {
+          list add (notes, line)
+        }
+      }
+      js = ListExclude(js,notes)
+      finaljs = NewStringList()
+      foreach (line, js) {
+        code = line
+        if (IsRegExMatch(regEx,line)) {
+          list = Split(line,"//")
+          code = list[0]
+        }
+        list add (finaljs, code)
+      }
+      js = Join(finaljs,"")
+      js = Replace(js, "[br]", "<br/>")
+      js = Replace(js, "[br/]", "<br/>")
+      js = Replace(js, "[break]", "<br/>")
+      js = Replace(js, "[linebreak]", "<br/>")
+      JS.eval (js)
+    ]]></function>
+  
+</library>

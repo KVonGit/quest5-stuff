@@ -1,0 +1,4338 @@
+<!--
+    KVMasterLib
+    Version 1.0
+    
+    README:
+    https://gist.github.com/KVonGit/a99f33347fb2f16e729671b6d46289ff
+-->
+  <library>
+
+  <object name="kv_init">
+    <feature_startscript />
+    <attr name="_initialise_" type="script">
+      <![CDATA[
+    dd = game.clockdays
+    hh = game.clockhours24
+    mm = game.clockminutes
+    now = ((dd-1)*24*60) + (hh * 60) + (mm)
+    if (not now = 540){
+      game.clocktime = now
+    }
+    SetTime(game.clocktime)
+    game.time_param = ""
+    game.changedtime_param =>{
+      SetJsTimeAndDate(game.time_param)
+    }
+    JS.eval("var gameName = '"+game.gamename+"';")
+    if(game.save_transcript){
+      JS.eval("var savingTranscript = true;")
+      //msg("<div id='t-script-temp'>")
+      //msg("Saving a transcript of:")
+      //invoke(version_cmd.script)
+      //msg("</div>")
+      //JS.eval("$('#t-script-temp').remove();")
+    }
+	game.clock = TimeAsString()
+	RunGameJs
+  SendToJsEval(kv_init.js_script)
+  invoke (gridImgLib.startup)
+      ]]>
+    </attr>
+    <js_script>
+      <![CDATA[
+    if(!String.prototype.startsWith){
+      String.prototype.startsWith = function (str) {
+        return !this.indexOf(str);
+      }
+    };
+    var questKvMod = true;
+    
+    function ASLSet(param){
+      ASLEvent('AslSet',param);
+    }
+
+		function msg(text) {
+			addText("[br][br]" + text);
+			scrollToEnd();
+		};
+
+		var clearedOnce = false;
+
+		clearScreen = function () {
+			$("#divOutput").append("<hr class='clearedAbove' />");
+			if (!clearedOnce) {
+				addText('<style>#divOutput > .clearedScreen { display: none; }</style>');
+			}
+			clearedOnce = true;
+			$('#divOutput').children().addClass('clearedScreen');
+			$('#divOutput').css('min-height', 0);
+			createNewDiv('left');
+			beginningOfCurrentTurnScrollPosition = 0;
+			setTimeout(function () {
+				$('html,body').scrollTop(0);
+			}, 100);
+		};
+
+		var logVar = "";
+		function addLogEntry(text) {
+			if (!text.startsWith("SaveLoadFile") && !text.startsWith("TxtFile") && !text.startsWith("Transcript")) {
+				logVar += getTimeAndDateForLog() + ' ' + text + "NEW_LINE";
+			}
+		};
+
+		function showLog() {
+			var logDivString = "";
+			logDivString += "<div ";
+			logDivString += "id='log-dialog' ";
+			logDivString += "style='display:none;'>";
+			logDivString += "<textarea id='logdata' rows='13'";
+			logDivString += "  cols='49'></textarea></div>";
+			addText(logDivString);
+			var logDialog = $("#log-dialog").dialog({
+				autoOpen: false,
+				width: 600,
+				height: 500,
+				title: "Log",
+				buttons: {
+					Ok: function () {
+						$(this).dialog("close");
+					},
+					Print: function () {
+						$(this).dialog("close");
+						printLogDiv();
+					},
+				},
+				show: { effect: "fadeIn", duration: 500 },
+				modal: true,
+			});
+			$('textarea#logdata').val(logVar.replace(/NEW_LINE/g, "\n"));
+			logDialog.dialog("open");
+		};
+
+		function printLogDiv() {
+			var iframe = document.createElement('iframe');
+			document.body.appendChild(iframe);
+			iframe.contentWindow.document.write(logVar.replace(/NEW_LINE/g, "[br]"));
+			iframe.contentWindow.print();
+			document.body.removeChild(iframe);
+		};
+
+		function getTimeAndDateForLog() {
+			var today = new Date();
+			var dd = today.getDate();
+			var mm = today.getMonth() + 1;
+			var yyyy = today.getFullYear();
+			var hrs = today.getHours();
+			var mins = today.getMinutes();
+			var secs = today.getSeconds();
+			today = mm + '/' + dd + '/' + yyyy;
+			if (hrs > 12) {
+				ampm = 'AM';
+				hrs = '0' + '' + hrs - 12
+			} else {
+				ampm = 'PM';
+			}
+			if (mins < 10) {
+				mins = '0' + mins;
+			}
+			if (secs < 10) {
+				secs = '0' + secs;
+			}
+			time = hrs + ':' + mins + ':' + secs + ' ' + ampm;
+			return today + ' ' + time;
+		};
+		var transcriptVar = "";
+		function addTranscriptEntry(text) {
+			transcriptVar += text;
+		};
+
+
+		function showTranscript() {
+			var transcriptDivString = "";
+			transcriptDivString += "<div ";
+			transcriptDivString += "id='transcript-dialog' ";
+			transcriptDivString += "style='display:none;'>";
+			transcriptDivString += "<div id='transcriptdata'></div></div>";
+			addText(transcriptDivString);
+			var transcriptDialog = $("#transcript-dialog").dialog({
+				autoOpen: false,
+				width: 600,
+				height: 500,
+				title: "Transcript",
+				buttons: {
+					Ok: function () {
+						$(this).dialog("close");
+						$(this).remove();
+					},
+					Print: function () {
+						printTranscriptDiv();
+					},
+				},
+				show: { effect: "fadeIn", duration: 500 },
+				modal: true,
+			});
+			$('#transcriptdata').html($('#divOutput').html()); 
+			$("#transcriptdata *").attr('style', '').attr('color', '');
+			transcriptDialog.dialog("open");
+
+		};
+
+
+
+		function printTranscriptDiv() {
+			var iframe = document.createElement('iframe');
+			document.body.appendChild(iframe);
+			iframe.contentWindow.document.write($("#transcriptdata").html());
+			iframe.contentWindow.print();
+			document.body.removeChild(iframe);
+			$("#transcript-dialog").dialog("close");
+			$("#transcript-dialog").remove();
+		};
+
+		function showPopup(title, text) {
+			$('#msgboxCaption').html(text);
+
+			var msgboxOptions = {
+				modal: true,
+				autoOpen: false,
+				title: title,
+				buttons: [
+					{
+						text: 'OK',
+						click: function () { $(this).dialog('close'); }
+					},
+				],
+				closeOnEscape: false,
+			};
+
+			$('#msgbox').dialog(msgboxOptions);
+			$('#msgbox').dialog('open');
+		};
+
+		function showPopupCustomSize(title, text, width, height) {
+			$('#msgboxCaption').html(text);
+
+			var msgboxOptions = {
+				modal: true,
+				autoOpen: false,
+				title: title,
+				width: width,
+				height: height,
+				buttons: [
+					{
+						text: 'OK',
+						click: function () { $(this).dialog('close'); }
+					},
+				],
+				closeOnEscape: false,
+			};
+
+			$('#msgbox').dialog(msgboxOptions);
+			$('#msgbox').dialog('open');
+		};
+
+		function showPopupFullscreen(title, text) {
+			$('#msgboxCaption').html(text);
+
+			var msgboxOptions = {
+				modal: true,
+				autoOpen: false,
+				title: title,
+				width: $(window).width(),
+				height: $(window).height(),
+				buttons: [
+					{
+						text: 'OK',
+						click: function () { $(this).dialog('close'); }
+					},
+				],
+				closeOnEscape: false,
+			};
+
+			$('#msgbox').dialog(msgboxOptions);
+			$('#msgbox').dialog('open');
+		};
+
+		var mobilePlayer = false;
+
+		function mobilePlayerSet() {
+			if (document.getElementById('tabButton').clientWidth > 0) {
+				mobilePlayer = true;
+			}
+		};
+
+		setupRealDate = function () {
+			var today = new Date();
+			var dd = today.getDate();
+			var mm = today.getMonth() + 1;
+			var yyyy = today.getFullYear();
+			var hrs = today.getHours();
+			var mins = today.getMinutes();
+			var totalMinutes = (hrs * 60) + mins;
+			var secs = today.getSeconds();
+			var ampm = 'AM';
+			var hrsMins = [hrs, mins];
+			if (dd < 10) { dd = '0' + dd }
+			if (mm < 10) { mm = '0' + mm }
+			today = mm + '/' + dd + '/' + yyyy;
+			if (hrs > 12) { ampm = 'PM'; hrs = '0' + '' + hrs - 12 }
+			else { ampm = 'AM' }
+			if (mins < 10) { mins = '0' + mins }
+			if (secs < 10) { secs = '0' + secs } time = hrs + ':' + mins + ':' + secs + ' ' + ampm;
+			var realHrs = hrsMins[0]; var realMins = hrsMins[1];
+			var param = realHrs + ';' + realMins + ';' + time + ';' + today + ';' + yyyy + ';' + mm + ';' + dd + ';' + totalMinutes;
+			ASLSet('game.time_param=' + param);
+		};
+		setTimeout(function () { setupRealDate(); }, 2000);
+  ]]>
+    </js_script>
+  </object>
+
+  <function name="FinishTurn">
+    if (GetBoolean(game,"suppressturnscripts")) {
+      game.suppressturnscripts = false
+    }
+    else {
+      RunTurnScripts
+    }
+    UpdateStatusAttributes
+    CheckDarkness
+    UpdateObjectLinks
+  </function>
+  
+  <function name="AslSet" parameters="data">
+    game.suppressturnscripts = true
+    data = Split(data,"||")
+    foreach (bit, data) {
+      stuff = Split(bit,"=")
+      obj_attr = stuff[0]
+      obj_attr = Split(obj_attr,".")
+      obj = obj_attr[0]
+      obj = GetObject(obj)
+      attr = obj_attr[1]
+      val = stuff[1]
+      if (EndsWith(val,"_toInt")) {
+        val = ToInt(Replace(val,"_toInt",""))
+      }
+      if(LCase(val)="true"){
+        val = true
+      }
+      else if(LCase(val)="false"){
+        val = false
+      }
+      else if (EndsWith(val,"_toDouble")) {
+        val = ToDouble(Replace(val,"_toDouble",""))
+      }
+      set (obj, attr, val)
+    }
+  </function>
+
+  <function name="AllRooms" type="objectlist">
+    return (FilterByAttribute(AllObjects(),"isroom",true))
+  </function>
+
+  <command name="lookat" template="lookat">
+    <![CDATA[
+    if (GetBoolean(object, "hidechildren")) {
+      object.hidechildren = false
+    }
+    
+    if (TypeOf(object, "look") = "script") {
+      do (object, "look")
+    }
+    else {
+      lookdesc = ""
+      if (HasString(object, "look")) {
+        lookdesc = object.look
+      }
+      
+      if (LengthOf(lookdesc) = 0) {
+        lookdesc = Template("DefaultObjectDescription")
+      }
+      
+      if (GetBoolean(object, "switchedon")) {
+        if (HasString(object, "switchedondesc")) {
+          lookdesc = lookdesc + " " + object.switchedondesc
+        }
+      }
+      else {
+        if (HasString(object, "switchedoffdesc")) {
+          lookdesc = lookdesc + " " + object.switchedoffdesc
+        }
+      }
+      
+      isDark = CheckDarkness()
+      if (isDark and not GetBoolean(object, "lightsource")) {
+        lookdesc = DynamicTemplate("LookAtDarkness", object)
+      }
+      else{
+        if (not HasAttribute(object,"timesexamined")){
+          object.timesexamined = 0
+        }
+        object.timesexamined = object.timesexamined + 1
+      }
+      msg (lookdesc)
+    }
+    
+    ListObjectContents (object)
+    ]]>
+  </command>
+
+  <command name="take" template="take">
+    <multipleobjects type="script">
+      game.pov.currentcommandpendingobjectscope = NewObjectList()
+      objlist = ListExclude(ScopeVisibleNotHeldNotScenery(), game.pov)
+      objlist = ListExclude(objlist, FilterByAttribute(objlist,"not_all",true))
+      foreach (obj, objlist) {
+        if (obj.parent = game.pov.parent and not DoesInherit(obj, "npc_type")) {
+          list add(game.pov.currentcommandpendingobjectscope, obj)
+        }
+      }
+    </multipleobjects>
+    <multiple>
+      takeList = NewObjectList()
+      foreach (obj, ListExclude(ScopeVisibleNotHeldNotScenery(), game.pov)) {
+        if (obj.parent = game.pov.parent) {
+          list add(takeList, obj)
+        }
+      }
+      return (takeList)
+    </multiple>
+    <scope>notheld</scope>
+    <script>
+      if (multiple and ListCount(object) = 0) {
+        msg("[NothingToTake]")
+      }
+      else{
+        foreach (obj, object) {
+          DoTake(obj, multiple)
+        }
+      }
+    </script>
+  </command>
+
+  <command name="quit" pattern="[quit]">
+    Ask("Are you sure you want to quit?"){
+    if (result){
+    request (Quit, "")
+    }
+    else{
+    game.notarealturn = true
+    }
+    }
+  </command>
+
+  <command name="ask_room_about_cmd">
+    <pattern>ask about #text#</pattern>
+    <script>
+      npcs = NewObjectList()
+      opts = NewStringDictionary()
+      foreach (o, GetDirectChildren(player.parent)) {
+      if (HasAttribute(o, "ask")) {
+      list add (npcs, o)
+      dictionary add (opts, o.name, GetDisplayAlias(o))
+      }
+      }
+      if (ListCount(npcs) = 0) {
+      msg ("You can ask, but no one is here to tell you anything.")
+      }
+      else if (ListCount(npcs) = 1) {
+      DoAskTell (ObjectListItem(npcs, 0), text, "ask", "askdefault", "DefaultAsk")
+      }
+      else {
+      game.askabouttext = text
+      ShowMenu ("Ask who?", opts, true) {
+      if (not result = null) {
+      o = GetObject(result)
+      DoAskTell (o, game.askabouttext, "ask", "askdefault", "DefaultAsk")
+      }
+      }
+      }
+    </script>
+  </command>
+
+  <command name="restart" pattern="restart">msg ("Please press CTRL+R to restart.")</command>
+  
+    
+  <!--
+  <command name="version_cmd">
+    <pattern>version;about;info;details</pattern>
+    <script>
+      <![CDATA[
+      if (not TypeOf(game,"author")="null") {
+        byLine = "<br/>Written by "+game.author
+      }
+      else {
+        byLine = ""
+      }
+      if (not TypeOf(game,"subtitle")="null") {
+        subTitle = "<br/>"+game.subtitle
+      }
+      else {
+        subTitle = ""
+      }
+      msg("<h3>"+game.gamename+"</h3>"+subTitle+"Version: "+game.version+""+byLine+"<br/>GameID: "+game.gameid+"<br/>Publication Date: "+game.firstpublished+"<br/>")
+    ]]>
+    </script>
+  </command>
+  -->
+
+    <command name="version_cmd">
+      <pattern>version;info;about</pattern>
+      <script>
+        <![CDATA[
+      table = "<table style='padding:9px;border:1px solid black;'>"
+      table = table + "<tr><td>TITLE: </td><td>" + game.gamename + "</td></tr>"
+      if (HasAttribute (game, "author")) {
+        table = table + "<tr><td>AUTHOR: </td><td>" + game.author + "</td></tr>"
+      }
+      table = table + "<tr><td>VERSION: </td><td>" + game.version + "</td></tr>"
+      table = table + "<tr><td>IFID: </td><td>" + game.gameid + "</td></tr>"
+      table = table + "</table>"
+      msg (table)
+    ]]>
+      </script>
+    </command>
+
+  <command name="log_cmd">
+    <pattern>log;view log;display log;view the log;display the log</pattern>
+    <script>
+      game.notarealturn = true
+      JS.showLog ()
+    </script>
+  </command>
+
+  <command name="view_transcript_cmd">
+    <pattern>transcript;script;view script;view transcript;display transcript;view the transcript;display the transcript</pattern>
+    <script>
+      game.notarealturn = true
+      JS.showTranscript ()
+    </script>
+  </command>
+
+  <command name="load_file_cmd">
+    <pattern>load file #text#</pattern>
+    <script>
+      <![CDATA[
+      LoadFile (text)
+      //EXAMPLE FILE:
+      //new=kv_special_item_1
+      //alias=black shard of &infin;
+      //look=It's the black shard, which is the most powerful of them all!
+      //parent=game.pov
+      //
+      //find=kv_green_shard
+      //parent=game.pov
+      //
+      //new=thingy
+      //parent=game.pov.parent
+      //
+      //new=anotherThing
+      //parent=player.parent
+      //
+      //new=thing3
+      //parent=here
+    ]]>
+    </script>
+  </command>
+
+  <function name="FormatObjectList" type="string" parameters="preList, parent, preFinal, postList">
+    <![CDATA[
+    result = ""
+    count = 0
+    list = RemoveSceneryObjects(GetDirectChildren(parent))
+    if (CheckDarkness()) {
+      list = RemoveDarkObjects(list)
+    }
+    listLength = ListCount(list)
+    foreach (item, list) {
+      if (LengthOf(result) = 0) result = preList + " "
+      result = result + GetDisplayNameLink(item, "object")
+      if (CanSeeThrough(item)) {
+        result = result + FormatObjectList(" (" + item.contentsprefix, item, preFinal, ")")
+      }
+      count = count + 1
+      if (count = listLength - 1) {
+        if(HasAttribute(game,"oxford_comma")){
+          if((game.oxford_comma) and listLength>2){
+            result = result + ", " + preFinal + " "
+          }
+          else{
+            result = result + " " + preFinal + " "
+            }
+          }
+        else{
+          result = result + preFinal + " "
+        }
+      }
+      else if (count < listLength) {
+        result = result + ", "
+      }
+      else {
+        result = result + postList
+      }
+    }
+    return (result)
+  ]]>
+  </function>
+
+  <function name="FormatExitList" type="string" parameters="preList, list, preFinal, postList">
+    <![CDATA[
+result = ""
+listLength = ListCount(list)
+if (listLength > 0) {
+  count = 0
+  result = preList + " "
+  foreach (item, list) {
+    result = result + GetDisplayNameLink(item, "exit")
+    count = count + 1
+    if (count = listLength - 1) {
+      if(HasAttribute(game,"oxford_comma")){
+        if((game.oxford_comma) and listLength>2){
+          result = result + ", " + preFinal + " "
+        }
+        else{
+          result = result + " " + preFinal + " "
+          }
+        }
+      else{
+        result = result + preFinal + " "
+      }
+    }
+    else if (count < listLength) {
+      result = result + ", "
+    }
+  }
+  result = result + postList
+}
+return (result)
+  ]]>
+  </function>
+
+  <function name="DbgLog" parameters="txt">
+    if(GetBoolean(game,"debugging")){
+      Log("DEBUGGING:  "+txt)
+    }
+  </function>
+
+  <function name="DbgMsg" parameters="txt">
+    <![CDATA[
+    if(GetBoolean(game,"debugging")){
+      msg("<br/><p style='color:blue;font-weight:bold;'>DEBUGGING:  "+txt+"</p><br/>")
+    }
+  ]]>
+  </function>
+
+  <function name="SendToJsEval" parameters="data">
+    <![CDATA[
+      regEx = "//"
+      js = Split(data,"<br/>")
+      notes = NewStringList()
+      foreach (line, js) {
+        if (StartsWith(line,"//")) {
+          list add (notes, line)
+        }
+      }
+      js = ListExclude(js,notes)
+      finaljs = NewStringList()
+      foreach (line, js) {
+        code = line
+        if (IsRegExMatch(regEx,line)) {
+          list = Split(line,"//")
+          code = list[0]
+        }
+        list add (finaljs, code)
+      }
+      js = Join(finaljs,"")
+      js = Replace(js, "[br]", "<br/>")
+      js = Replace(js, "[br/]", "<br/>")
+      js = Replace(js, "[break]", "<br/>")
+      js = Replace(js, "[linebreak]", "<br/>")
+      JS.eval (js)
+    ]]>
+  </function>
+
+  <function name="RunGameJs">
+    <![CDATA[
+    if(HasAttribute(game,"js_script")){
+      SendToJsEval(game.js_script)
+    }
+  ]]>
+  </function>
+
+  <function name="ReportBug">
+    <![CDATA[
+    if(HasAttribute(game,"mailto")){
+      msg ("<div id='creation' style='display:none;width:950px;padding:24px;margin-right:auto;margin-left:auto;margin-top:20px;'><br/>First name:<br/>  <input class='bug-input'  type=\"text\" name=\"firstname\" id=\"firstname\" value='Anonymous'><br><br/>Last name:<br/>  <input class='bug-input'  type=\"text\" name=\"lastname\" id=\"lastname\" value='Adventurer'><br/><br/>Game Name:<br/><input  class='bug-input' type=\"text\" name=\"gamename\" id=\"gamename\"  value='{game.gamename}'><br/>Game ID:<br/><input class='bug-input'  type=\"text\" name=\"gameid\"  id=\"gameid\" value='{game.gameid}'><br/>Version:<br/><input  class='bug-input' type=\"text\" name=\"gameversion\"  id=\"gameversion\" value='{game.version}'><br/><br/>Bug:<br/><input class='bug-input'  type=\"text\" name=\"bug\" id=\"bug\"  value='The game messed up when...'><br/><br/>Race: <select name='race'><option value=\"Human\">Human</option><option value=\"Orc\">Orc</option><option value=\"Dwarf\">Dwarf</option><option value=\"Elf\">Elf</option></select><br/><br/>Gender: <select name='sex'><option value=\"decline\">Select your gender</option><option value=\"male\">Male</option><option value=\"female\">Female</option><option value=\"decline\">Decline to state</option></select><br/><br/><br/><center><hr/><button onclick='submitStats();'>SUBMIT</button><br/><br/><button onclick='exitBugReport();'>CANCEL</button></center><br/><br/></div>")
+      JS.eval ("submitStats = function(){  var name = $('#firstname').attr('value') + ' ' + $('#lastname').attr('value');  var gameinfo = $('#gamename').attr('value') + ' ' + $('#gameid').attr('value') + ' ' +  $('#gameversion').attr('value');  var issue = $('#bug').attr('value');  var linksrc = 'mailto"+game.mailto+"?subject='+gameinfo+' BUG REPORT&body='+issue;  goUrl(linksrc);exitBugReport();};exitBugReport = function(){$('#gameBorder').show();  $('#creation').remove();};$('.bug-input').css('width','80%');$('#creation').insertBefore($('#dialog'));  $('#gameBorder').hide();  $('#creation').show();")
+    }
+    else{
+      msg("This feature cannot be used in this game.")
+    }
+  ]]>
+  </function>
+
+  <function name="PlayLocalOgvVideo" parameters="file">
+    <![CDATA[
+      if(EndsWith(file,".ogv")){
+        msg ("<video width=\"100%\" height=\"550px\" autoplay controls><br/><source src=\"" + GetFileURL(file) + "\" type=\"video/ogg\"><br/>Your browser does not support the video tag.<br/></video>")
+      }
+      else{
+        error("Unsupported format.  File must be .ogv!")
+      }
+    ]]>
+  </function>
+
+  <function name="MakeCurrentExitsVisible">
+    <![CDATA[
+    if (not HasAttribute(game, "current_exits")) {
+      // Do nothing.
+    }
+    else if (not ListCount(game.current_exits)<1) {
+      foreach (exit, game.current_exits) {
+        exit.visible = true
+      }
+      game.current_exits = NewObjectList()
+      msg ("Play has resumed.")
+    }
+  ]]>
+  </function>
+  <function name="MakeCurrentExitsInvisible">
+    if (not HasAttribute(game, "current_exits")) {
+    game.current_exits = NewObjectList()
+    }
+    game.current_exits = ScopeUnlockedExitsForRoom(game.pov.parent)
+    foreach (exit, game.current_exits) {
+    exit.visible = false
+    }
+  </function>
+  <function name="SetMakeCurrentExitsInvisibleTimeout" parameters="time">
+    MakeCurrentExitsInvisible
+    SetTimeout (time) {
+    MakeCurrentExitsVisible
+    }
+  </function>
+
+
+  <function name="SetHideCommandBarAndPanesTimeout" parameters="time">
+    JS.uiHide ("#txtCommand")
+    JS.uiHide ("#gamePanes")
+    SetTimeout (time) {
+    JS.uiShow ("#txtCommand")
+    JS.uiShow ("#gamePanes")
+    }
+  </function>
+
+  <function name="SetJsTimeAndDate" parameters="param">
+    // JS.alert (param)
+    params = Split(param,";")
+    game.clockinit_hoursJS = params[0]
+    game.clockinit_hoursJS = ToInt(game.clockinit_hoursJS)
+    game.clockinit_minutesJS = params[1]
+    game.clockinit_minutesJS = ToInt(game.clockinit_minutesJS)
+    game.clockinit_timeAsStringJS = params[2]
+    game.clockinit_dateAsStringJS = params[3]
+    game.clockinit_yearJS = params[4]
+    game.clockinit_monthJS = params[5]
+    game.clockinit_dayJS = params[6]
+    game.clockinit_totalMinutesJS = params[7]
+  </function>
+
+  <function name="LoadFile" parameters="filename">
+    <![CDATA[
+    s = GetFileData (filename)
+    current_object = null
+    game.setUp = false
+    foreach (line, Split(s, "\n")) {
+      line = Crop(line)
+      if (not line = "" and not StartsWith(line, "#")) {
+        bits = Split(line, "=")
+        if (StringListItem(bits, 0) = "new") {
+          if (ListCount(bits) = 2) {
+            create (StringListItem(bits, 1))
+            current_object = GetObject(StringListItem(bits, 1))
+          }
+          else {
+            create (StringListItem(bits, 2), StringListItem(bits, 1))
+            current_object = GetObject(StringListItem(bits, 2))
+          }
+        }
+        else if (StringListItem(bits, 0) = "find") {
+          current_object = GetObject(StringListItem(bits, 1))
+          if (current_object = null) {
+            error ("Failed to find " + StringListItem(bits, 1) + " in the game world. Things will go badly...")
+          }
+        }
+        else if (StringListItem(bits, 0) = "exit") {
+          create exit (StringListItem(bits, 2), null, null, null, StringListItem(bits, 1))
+          current_object = GetObject(StringListItem(bits, 2))
+        }
+        else if (StringListItem(bits, 0) = "parent") {
+          newParent = StringListItem(bits, 1)
+          if (newParent = "game.pov") {
+            current_object.parent = game.pov.name
+            game.setUp = true
+            list remove (bits, "game.pov")
+            list add (bits, game.pov.name)
+          }
+          else if (newParent = "game.pov.parent") {
+            current_object.parent = game.pov.parent.name
+            game.setUp = true
+            list remove (bits, "game.pov.parent")
+            list add (bits, game.pov.parent.name)
+          }
+          else if (newParent = "here") {
+            current_object.parent = game.pov.parent.name
+            game.setUp = true
+            list remove (bits, "here")
+            list add (bits, game.pov.parent.name)
+          }
+          else if (newParent = "player.parent") {
+            current_object.parent = player.parent.name
+            game.setUp = true
+            list remove (bits, "player.parent")
+            list add (bits, player.parent.name)
+          }
+          current_object.parent = GetObject(StringListItem(bits, 1))
+          if (current_object.parent = null) {
+            error ("Failed to find " + StringListItem(bits, 1) + " in the game world. Things will go badly...")
+          }
+        }
+        else if (StringListItem(bits, 0) = "to") {
+          current_object.to = GetObject(StringListItem(bits, 1))
+          if (current_object.to = null) {
+            error ("Failed to find " + StringListItem(bits, 1) + " in the game world. Things will go badly...")
+          }
+        }
+        else {
+          if (LCase(StringListItem(bits, 1)) = "false") {
+            set (current_object, StringListItem(bits, 0), false)
+          }
+          else if (LCase(StringListItem(bits, 1)) = "true") {
+            set (current_object, StringListItem(bits, 0), true)
+          }
+          else if (IsInt(StringListItem(bits, 1))) {
+            set (current_object, StringListItem(bits, 0), ToInt(StringListItem(bits, 1)))
+          }
+          if (not game.setUp) {
+            set (current_object, StringListItem(bits, 0), StringListItem(bits, 1))
+          }
+          else {
+            set (current_object, StringListItem(bits, 0), game.pov)
+          }
+        }
+      }
+    }
+    msg ("Done.")
+  ]]>
+  </function>
+
+  <function name="Crop" parameters="s" type="string">
+    <![CDATA[
+    start = 1
+    end = LengthOf(s)
+    for (i, 1, LengthOf(s)) {
+      if (Asc(Mid(s, i, 1)) < 33) {
+        if (start = i) {
+          start = i + 1
+        }
+      }
+      else {
+        end = i
+      }
+    }
+    return (Mid(s, start, end - start + 1))
+  ]]>
+  </function>
+
+  <function name="IsEven" parameters="int" type="boolean">
+    if (int%2=0) {
+    return (true)
+    }
+    else {
+    return (false)
+    }
+  </function>
+  <function name="IsOdd" parameters="int" type="boolean">
+    if (int%2=0) {
+    return (false)
+    }
+    else {
+    return (true)
+    }
+  </function>
+
+  <function name="SetRealTimeMinutes" params="data">
+    game.real_start_minutes = ToInt(data)
+  </function>
+
+  <function name="Log" parameters="text">
+    request (Log, text)
+    JS.eval ("if(typeof(addLogEntry)===\"function\"){ addLogEntry(\""+text+"\"); }")
+  </function>
+
+  <function name="FormatList" parameters="list, joiner, lastjoiner, nothing" type="string">
+    <![CDATA[
+    if (ListCount (list) = 0) {
+      return (nothing)
+    }
+    else {
+      result = ""
+      count = 0
+      listLength = ListCount(list)
+      foreach (item, list) {
+        if (TypeOf(item) = "object") {
+          result = result + GetDisplayName(item)
+        }
+        else {
+          result = result + item
+        }
+        count = count + 1
+        if (count = listLength - 1) {
+          if (not IsRegexMatch("^\\W", lastjoiner)) result = result + " "
+          if(HasAttribute(game,"oxford_comma")){
+            if(game.oxford_comma){
+              result = result + ", " + lastjoiner + " "
+            }
+          }
+          else{
+            result = result + lastjoiner + " "
+          }
+        }
+        else if (count < listLength) {
+          result = result + joiner + " "
+        }
+      }
+      return (Trim (result))
+    }
+  ]]>
+  </function>
+
+  <function name="HandleCommand" parameters="command, metadata">
+    <![CDATA[
+    handled = false
+    if (game.menucallback <> null) {
+      if (HandleMenuTextResponse(command)) {
+        handled = true
+      }
+      else {
+        if (game.menuallowcancel) {
+          ClearMenu
+        }
+        else {
+          handled = true
+        }
+      }
+    }
+    if (not handled) {
+      StartTurnOutputSection
+      if (StartsWith (command, "*")) {
+        msg (SafeXML (command))
+		msg ("<br/>Noted")
+        game.notarealturn = true
+        Log("NOTE:  "+command)
+      }
+      else {    
+        shownlink = false
+        if (game.echocommand) {
+          if (metadata <> null and game.enablehyperlinks and game.echohyperlinks) {
+            foreach (key, metadata) {
+              if (EndsWith(command, key)) {
+                objectname = StringDictionaryItem(metadata, key)
+                object = GetObject(objectname)
+                if (object <> null) {
+                  msg ("")
+                  msg ("&gt; " + Left(command, LengthOf(command) - LengthOf(key)) + "{object:" + object.name + "}" )
+                  shownlink = true
+                }
+              }
+            }
+          }
+          if (not shownlink) {
+            msg ("")
+            OutputTextRaw ("&gt; " + SafeXML(command))
+          }
+        }
+        if (game.command_newline) {
+          msg ("")
+        }
+        game.pov.commandmetadata = metadata
+        if (game.multiplecommands){		
+          commands = Split(command, ".")
+          if (ListCount(commands) = 1) {
+            game.pov.commandqueue = null
+            HandleSingleCommand (Trim(command))
+          }
+          else {
+            game.pov.commandqueue = commands
+            HandleNextCommandQueueItem
+          }
+		    }
+        else {
+          game.pov.commandqueue = null
+          HandleSingleCommand (Trim(command))	
+        }		
+      }
+    }
+    ]]>
+  </function>
+
+  <template name="SelfAlias">you</template>
+
+  <type name="defaultgame">
+    <enablehyperlinks/>
+    <echocommand/>
+    <echohyperlinks/>
+    <showdescriptiononenter/>
+    <autodescription/>
+    <defaultfont>Georgia, serif</defaultfont>
+    <defaultfontsize type="int">12</defaultfontsize>
+    <defaultbackground>White</defaultbackground>
+    <defaultforeground>Black</defaultforeground>
+    <defaultlinkforeground>Blue</defaultlinkforeground>
+    <backgroundimage type="string"></backgroundimage>
+    <setbackgroundopacity type="boolean">false</setbackgroundopacity>
+    <backgroundopacity type="double">0.5</backgroundopacity>
+    <menufont>Arial</menufont>
+    <menufontsize type="int">9</menufontsize>
+    <menubackground>White</menubackground>
+    <menuforeground>Black</menuforeground>
+    <menuhoverbackground>LightGrey</menuhoverbackground>
+    <menuhoverforeground>Black</menuhoverforeground>
+    <underlinehyperlinks/>
+    <compassdirections type="simplestringlist">[CompassNW];[CompassN];[CompassNE];[CompassW];[CompassE];[CompassSW];[CompassS];[CompassSE];[CompassUp];[CompassDown];[CompassIn];[CompassOut]</compassdirections>
+    <clearframe type="boolean">true</clearframe>
+    <timeelapsed type="int">0</timeelapsed>
+    <appendobjectdescription type="boolean">false</appendobjectdescription>
+    <allobjects type="simplestringlist">[AllObjects]</allobjects>
+    <parserignoreprefixes type="simplestringlist">[ParserIgnorePrefixes]</parserignoreprefixes>
+    <displayroomdescriptiononstart type="boolean">true</displayroomdescriptiononstart>
+    <showpanes/>
+    <showcommandbar/>
+    <showlocation/>
+
+    <statusandcompassattop type="boolean">true</statusandcompassattop>
+    <turnoffcompass type="boolean">false</turnoffcompass>
+    <turnoffinventory type="boolean">false</turnoffinventory>
+    <turnoffplacesandobjects type="boolean">false</turnoffplacesandobjects>
+    <borderlesscursor type="boolean">false</borderlesscursor>
+    <colourblend type="boolean">false</colourblend>
+    <commandpane type="boolean">false</commandpane>
+    <customstatuspane type="boolean">false</customstatuspane>
+    <panestheme>Classic</panestheme>
+    <shadowbox type="boolean">false</shadowbox>
+    <respondtogridclicks type="boolean">false</respondtogridclicks>
+    <commandcursor>&gt;</commandcursor>
+    <moneyformat>$!</moneyformat>
+    <classiclocation/>
+    <turnoffsavebutton type="boolean">false</turnoffsavebutton>
+    <mapexitwidth type="int">1</mapexitwidth>
+    <mapexitcolour>Black</mapexitcolour>
+
+    <setcustomwidth type="boolean">false</setcustomwidth>
+    <customwidth type="int">950</customwidth>
+    <setcustompadding type="boolean">false</setcustompadding>
+    <custompaddingtop type="int">30</custompaddingtop>
+    <custompaddingbottom type="int">0</custompaddingbottom>
+    <custompaddingleft type="int">20</custompaddingleft>
+    <custompaddingright type="int">20</custompaddingright>
+    <showborder/>
+    <showscore type="boolean">false</showscore>
+    <showhealth type="boolean">false</showhealth>
+    <showmoney type="boolean">false</showmoney>
+    <showtitle/>
+    <autodisplayverbs/>
+    <clearscreenonroomenter type="boolean">false</clearscreenonroomenter>
+    <autodescription_youarein type="int">1</autodescription_youarein>
+    <autodescription_youcansee type="int">3</autodescription_youcansee>
+    <autodescription_youcango type="int">4</autodescription_youcango>
+    <autodescription_description type="int">2</autodescription_description>
+    <autodescription_youarein_useprefix type="boolean">false</autodescription_youarein_useprefix>
+    <autodescription_youarein_newline type="boolean">false</autodescription_youarein_newline>
+    <autodescription_youcansee_newline type="boolean">false</autodescription_youcansee_newline>
+    <autodescription_youcango_newline type="boolean">false</autodescription_youcango_newline>
+    <autodescription_description_newline type="boolean">false</autodescription_description_newline>
+    <changeroom_newline/>
+    <command_newline type="boolean">false</command_newline>
+    <description type="string">A Quest adventure.</description>
+    <languageid>[LanguageId]</languageid>
+    <gridmap type="boolean">false</gridmap>
+    <mapscale type="int">30</mapscale>
+    <mapsize type="int">300</mapsize>
+    <changedpov type="script">
+      InitPOV (oldvalue, game.pov)
+    </changedpov>
+    <feature_lightdark type="boolean">true</feature_lightdark>
+    <feature_pictureframe type="boolean">false</feature_pictureframe>
+    <feature_limitinventory type="boolean">false</feature_limitinventory>
+    <feature_asktell type="boolean">true</feature_asktell>
+    <feature_annotations type="boolean">true</feature_annotations>
+    <feature_advancedwearables type="boolean">false</feature_advancedwearables>
+    <feature_advancedscripts type="boolean">true</feature_advancedscripts>
+    <feature_javascript/>
+    <deactivatecommandlinks type="boolean">false</deactivatecommandlinks>
+    <multiplecommands type="boolean">false</multiplecommands>
+    <publishfileextensions>*.jpg;*.jpeg;*.png;*.gif;*.js;*.wav;*.mp3;*.htm;*.html;*.svg;*.txt;*.md;*.mp4;*.ogg;*.ogv*.pdf;*.css</publishfileextensions>
+    <questkvmod />
+    <oxford_comma/>
+    <turns type="int">0</turns>
+    <save_transcript type="boolean">false</save_transcript>
+    <notarealturn type="boolean">false</notarealturn>
+    <debugging type="boolean">false</debugging>
+    <unresolvedcommandhandler type="script">
+      game.notarealturn = true
+      msg ("I didn't understand your command.")
+    </unresolvedcommandhandler>
+    <clock type="string"></clock>
+    <clocktime type="int">540</clocktime>
+    <clockminutes type="int">0</clockminutes>
+    <clockhours24 type="int">9</clockhours24>
+    <clockdays type="int">1</clockdays>
+    <clockcountdown type="int">0</clockcountdown>
+    <clockincrement type="int">1</clockincrement>
+    <clockwaittime type="int">1</clockwaittime>
+    <clocktesting type="boolean">false</clocktesting>
+    <clockclockmsg>The time is now ###.</clockclockmsg>
+    <clockchangedtime type="script">
+      JS.eval("$('#clock').html('" + TimeAsString() + "');")
+    </clockchangedtime>
+    <clockstartyear type="int">2018</clockstartyear>
+    <useclock />
+    <js_script type="string"></js_script>
+    <editor_hide_library_message type="boolean">false</editor_hide_library_message>
+  </type>
+
+  <type name="defaultobject">
+    <visible/>
+    <displayverbs type="simplestringlist">[LookAt];[Take]</displayverbs>
+    <inventoryverbs type="simplestringlist">[LookAt];[Drop]</inventoryverbs>
+    <take type="boolean">false</take>
+    <use type="boolean">false</use>
+    <givesingle type="boolean">false</givesingle>
+    <drop/>
+    <gender>[NeutralGender]</gender>
+    <article>[NeutralArticle]</article>
+    <possessive>[NeutralPossessive]</possessive>
+    <isopen type="boolean">false</isopen>
+    <open type="boolean">false</open>
+    <close type="boolean">false</close>
+    <container type="boolean">false</container>
+    <descprefix>[YouAreIn]</descprefix>
+    <objectslistprefix>[SeeListHeader]</objectslistprefix>
+    <exitslistprefix>[GoListHeader]</exitslistprefix>
+    <contentsprefix>[ContainerContentsPrefix]</contentsprefix>
+    <description type="string"></description>
+    <implementation_notes type="string"></implementation_notes>
+    <scenery type="boolean">false</scenery>
+    <hidechildren type="boolean">false</hidechildren>
+    <listchildren type="boolean">false</listchildren>
+    <usedefaultprefix/>
+    <changedparent type="script">
+      if (game.pov = this) {
+      if (IsDefined("oldvalue")) {
+      OnEnterRoom(oldvalue)
+      this.lastparent = oldvalue
+      }
+      else {
+      OnEnterRoom(null)
+      }
+      if (game.gridmap) {
+      MergePOVCoordinates
+      }
+      }
+      this.hasbeenmoved = true
+    </changedparent>
+    <changedisopen type="script">
+      if (this.isopen and HasScript(this, "onopen")) {
+      do (this, "onopen")
+      }
+      if (not this.isopen and HasScript(this, "onclose")) {
+      do (this, "onclose")
+      }
+    </changedisopen>
+    <changedlocked type="script">
+      if (this.locked and HasScript(this, "onlock")) {
+      do (this, "onlock")
+      }
+      if (not this.locked and HasScript(this, "onunlock")) {
+      do (this, "onunlock")
+      }
+    </changedlocked>
+    <changedswitchedon type="script">
+      if (this.switchedon and HasScript(this, "onswitchon")) {
+      do (this, "onswitchon")
+      }
+      if (not this.switchedon and HasScript(this, "onswitchoff")) {
+      do (this, "onswitchoff")
+      }
+    </changedswitchedon>
+    <volume type="int">0</volume>
+    <price type="int">0</price>
+    <dark type="boolean">false</dark>
+    <lightstrength type="string"></lightstrength>
+    <darklevel type="boolean">false</darklevel>
+    <grid_width type="int">1</grid_width>
+    <grid_length type="int">1</grid_length>
+    <grid_fill>White</grid_fill>
+    <grid_border>Black</grid_border>
+    <grid_borderwidth type="int">1</grid_borderwidth>
+    <grid_bordersides type="int">15</grid_bordersides>
+    <grid_render type="boolean">false</grid_render>
+    <grid_label type="string"></grid_label>
+    <grid_label_colour type="string">Black</grid_label_colour>
+    <grid_parent_offset_auto/>
+    <grid_parent_offset_x type="int">0</grid_parent_offset_x>
+    <grid_parent_offset_y type="int">0</grid_parent_offset_y>
+    <pov_alias>[SelfAlias]</pov_alias>
+    <pov_alt type="simplestringlist">[SelfAlt]</pov_alt>
+    <pov_look>[DefaultSelfDescription]</pov_look>
+    <pov_gender>[SelfGender]</pov_gender>
+    <pov_article>[SelfArticle]</pov_article>
+    <pov_possessive>[SelfPossessive]</pov_possessive>
+    <feature_usegive type="boolean">false</feature_usegive>
+    <feature_container type="boolean">false</feature_container>
+    <feature_switchable type="boolean">false</feature_switchable>
+    <feature_edible type="boolean">false</feature_edible>
+    <feature_player type="boolean">false</feature_player>
+    <feature_lightdark type="boolean">false</feature_lightdark>
+    <visited type="boolean">false</visited>
+    <hasbeenmoved type="boolean">false</hasbeenmoved>
+  </type>
+
+  <type name="plural">
+    <gender>[NeutralPluralGender]</gender>
+    <article>[NeutralPluralArticle]</article>
+    <possessive>[NeutralPluralPossessive]</possessive>
+    <usedefaultprefix type="boolean">false</usedefaultprefix>
+  </type>
+
+  <type name="maleplural">
+    <displayverbs type="simplestringlist">[LookAt];[SpeakTo]</displayverbs>
+    <gender>[MalePluralGender]</gender>
+    <article>[MalePluralArticle]</article>
+    <possessive>[MalePluralPossessive]</possessive>
+    <usedefaultprefix type="boolean">false</usedefaultprefix>
+  </type>
+
+  <type name="femaleplural">
+    <displayverbs type="simplestringlist">[LookAt];[SpeakTo]</displayverbs>
+    <gender>[FemalePluralGender]</gender>
+    <article>[FemalePluralArticle]</article>
+    <possessive>[FemalePluralPossessive]</possessive>
+    <usedefaultprefix type="boolean">false</usedefaultprefix>
+  </type>
+
+
+  <type name="editor_room">
+    <isroom/>
+  </type>
+
+  <tab>
+    <parent>_GameEditor</parent>
+    <onlydisplayif>game.feature_javascript</onlydisplayif>
+    <caption>KV'S JS Add-on</caption>
+    <control>
+      <controltype>label</controltype>
+      <caption>Use [br] to insert line breaks into your code!  (All normal line breaks, even in code, will be removed!)</caption>
+    </control>
+    <control>
+      <controltype>richtext</controltype>
+      <attribute>js_script</attribute>
+      <notextprocessor/>
+      <expand/>
+    </control>
+  </tab>
+
+  <tab>
+    <parent>_GameEditor</parent>
+    <caption>KV'S Extras</caption>
+    <control>
+      <appliesto>game</appliesto>
+      <controltype>checkbox</controltype>
+      <caption>Use the Oxford comma</caption>
+      <attribute>oxford_comma</attribute>
+    </control>
+    
+    <tab>
+      <onlydisplayif>game.useclock</onlydisplayif>
+    <parent>_GameEditor</parent>
+    <caption>Clock</caption>
+       <control>
+        <controltype>number</controltype>
+        <attribute>clockdays</attribute>
+        <caption>Start day</caption>
+        <minimum>1</minimum>
+      </control>
+      <control>
+        <controltype>number</controltype>
+        <attribute>clockhours24</attribute>
+        <caption>Start hour</caption>
+        <minimum>0</minimum>
+		<maximum>23</maximum>
+      </control>
+          <control>
+        <controltype>number</controltype>
+        <attribute>clockminutes</attribute>
+        <caption>Start minute</caption>
+        <minimum>0</minimum>
+		<maximum>59</maximum>
+      </control>
+    <control>
+        <controltype>number</controltype>
+        <attribute>clockwaittime</attribute>
+        <caption>Wait time</caption>
+        <minimum>0</minimum>
+      </control>
+        <control>
+        <controltype>number</controltype>
+        <attribute>clockincrement</attribute>
+        <caption>Increment</caption>
+        <minimum>0</minimum>
+      </control>
+    <control>
+        <controltype>textbox</controltype>
+        <attribute>clockclockmsg</attribute>
+        <caption>Clock message</caption>
+      </control>
+    </tab>
+
+    <control>
+      <appliesto>game</appliesto>
+      <controltype>checkbox</controltype>
+      <caption>Enable debugging mode</caption>
+      <attribute>debugging</attribute>
+    </control>
+    
+    <control>
+      <appliesto>game</appliesto>
+      <controltype>checkbox</controltype>
+      <caption>Enable the game clock</caption>
+      <attribute>useclock</attribute>
+    </control>
+
+    <control>
+      <appliesto>game</appliesto>
+      <controltype>checkbox</controltype>
+      <caption>Display the Javascript tab</caption>
+      <attribute>feature_javascript</attribute>
+    </control>
+  </tab>
+
+  <tab>
+    <parent>_GameEditor</parent>
+    <onlydisplayif>not game.editor_hide_library_message</onlydisplayif>
+    <caption>NOTE FROM KV</caption>
+    <control>
+      <controltype>label</controltype>
+      <caption>
+        ATTENTION
+
+        If you have my mod (Quest 573, you have every library from Pixie's GitHub repository included in the libraries section!
+
+        Just click the dropdown while adding a library!  You'll (probably) see them all!
+
+        (IF YOU HAVE THE STANDARD VERSION OF QUEST AND ARE SIMPLY USING  MY LIBRARY, THIS EXCLUDES YOU.)
+      </caption>
+    </control>
+    <control>
+      <controltype>checkbox</controltype>
+      <caption>HIDE THIS TAB</caption>
+      <attribute>editor_hide_library_message</attribute>
+    </control>
+  </tab>
+
+  <tab>
+    <mustnotinherit>editor_object</mustnotinherit>
+    <parent>_ObjectEditor</parent>
+    <caption>Room Setting</caption>
+    <control>
+      <caption>
+        Object is a room. (This is to return a list of all rooms.)
+        (If this is currently set to true by default, it is because this object is (or once was) set up as a room.  Feel free to change it.)
+      </caption>
+      <controltype>checkbox</controltype>
+      <attribute>isroom</attribute>
+    </control>
+  </tab>
+
+  <!--
+  ClockLib v3.1
+  
+  Version 3.1 adds functionality for displaying dates.
+  
+  Quest version: 5.6
+  Written by: The Pixie, 2011-2016
+
+  Tutorial and notes here:
+  https://github.com/ThePix/quest/wiki/Clock-Library
+  
+   ClockLib v3.2
+   
+   This version has been modified to set attributes on the game object rather than game_clock.
+   It also adds a tab to the GUI to set the start time.
+   
+    Modified by KV, 2018
+  -->
+  
+    
+  <command name="clock">
+    <pattern>clock;time</pattern>
+    <script>
+      //game.notarealturn = true
+      if(game.useclock){
+        P (Replace(game.clockclockmsg, "###", TimeAsString()))
+      }
+      else {
+        msg ("This feature is not enabled.")
+      }
+    </script>
+  </command>
+
+  <command name="wait">
+    <pattern type="string">^wait$|^z$</pattern>
+    <script>
+      <![CDATA[
+      game.stop_waiting = false
+      count = game.clockwaittime
+      game.clockevent = false
+      while (count > 0 and not game.clockevent) {
+        // msg("count = " + count)
+        // msg("game.clockevent = " + game.clockevent)
+        count = count - 1
+      }
+      if (not game.clockevent) {
+        if (not game.clockwaittime = 1) {
+          P ("You wait " + game.clockwaittime + " minutes.")
+        }
+        else {
+          P ("You wait " + game.clockwaittime + " minute.")
+        }
+      }
+    ]]>
+    </script>
+  </command>
+
+  <command name="wait minutes">
+    <pattern type="string"><![CDATA[^(wait|z) (?<text>\w*)( minute| minutes| turn| turns|)$]]></pattern>
+    <script>
+      <![CDATA[
+      game.clockevent = true
+      if (not IsInt(text)) {
+        msg ("Wait how long (I did not understand \"" + text + "\")?")
+      }
+      else {
+        game.waitcount = WaitN(ToInt(text))
+        msg ("You wait for " + game.waitcount + " minute{if game.waitcount>1:s}.")
+      }
+    ]]>
+    </script>
+  </command>
+
+  <function name="IncTime">
+    <![CDATA[
+    on ready {
+      game.clocktime = game.clocktime + 1
+      // msg("game.clocktime = " + game.clocktime)
+      // msg("game.clockevent = " + game.clockevent)
+      game.clockminutes = game.clocktime % 60
+      game.clockhours24 = (game.clocktime / 60) % 24
+      game.clockdays = game.clocktime / (60 * 24)
+      name = "event_" + DD(game.clockdays) + "_" + DD(game.clockhours24) + "_" + DD(game.clockminutes)
+      game.clockcountdown = game.clockcountdown - 1
+      // msg("Looking for: " + name)
+      o = GetObject(name)
+      if (not o = null and HasScript(o, "look")) {
+        if (game.clocktesting) {
+          msg ("Found: " + o + " (" + o.alias + ")")
+        }
+        // this is used by wait
+        game.clockevent = true
+        do (o, "look")
+      }
+      else if (game.clockcountdown < 0 and HasAttribute(game, "clocknextstep")) {
+        if (game.clocktesting) {
+          msg ("Step found: " + game.clocknextstep + " (" + game.clocknextstep.alias + ")")
+        }
+        // this is used by wait
+        game.clockevent = true
+        step = game.clocknextstep
+        game.clocknextstep = null
+        do (step, "look")
+      }
+      game.clock = TimeAsString()
+      IncUserTime
+    }
+  ]]>
+  </function>
+  <function name="WaitN" parameters="n" type="int">
+    game.stop_waiting = false
+    for (i, 1, n-1) {
+    IncTime
+    if (game.stop_waiting) {
+    return (i)
+    }
+    }
+    return (n)
+  </function>
+
+  <turnscript name="clocklib_turnscript">
+    <enabled/>
+    <script>
+      if (not HasAttribute(game,"turns")){
+      game.turns = 0
+      }
+      if (not HasAttribute(game,"notarealturn")){
+      game.notarealturn = false
+      }
+      if (not game.notarealturn) {
+      game.turns = game.turns + 1
+      for (i, 1, game.clockincrement) {
+      IncTime ()
+      }
+      }
+      game.clockincrement = 1
+      game.notarealturn = false
+    </script>
+  </turnscript>
+
+  <function name="TimeAsString" type="string">
+    <![CDATA[
+    hours = game.clockhours24 % 12
+    if (hours = 0) {
+      hours = 12
+    }
+    s = " " + hours + ":" + DD(game.clockminutes)
+    if (game.clockhours24 < 12) {
+      return (s + " am")
+    }
+    else {
+      return (s + " pm")
+    }
+  ]]>
+  </function>
+
+
+
+
+
+  <!--
+  Can be overridden to have stuff happened each minute.
+  This will fire after any event scheduled for this time.
+  -->
+  <function name="IncUserTime">
+  </function>
+
+
+
+  <!--
+  Set this during a command to have the given time expire during the command.
+  -->
+  <function name="SetInc" parameters="minutes">
+    game.clockincrement = minutes
+  </function>
+
+
+  <!--
+  Creates a new event for the given time, or as soon after that where there is a slot free.
+  -->
+  <function name="CreateEvent" parameters="time, alias, script">
+    time = game.clocktime + time
+    o = null
+    while (o = null) {
+    o = AttemptCreateEvent(time)
+    time = time + 1
+    }
+    o.look = script
+    o.alias = alias
+  </function>
+
+  <!--
+  Creates a new event for the given time, or as soon after that where there is a slot free.
+  -->
+  <function name="NextStep" parameters="step, delay">
+    game.clocknextstep = step
+    game.clockcountdown = delay
+    //msg("delay=" + delay)
+  </function>
+
+
+
+  <!--
+  Will try to create an event at the given time, returning said event if successful.
+  If another event is set for that time, it will return null.
+  -->
+  <function name="AttemptCreateEvent" parameters="time" type="object">
+    minutes = time % 60
+    hours24 = (time / 60) % 24
+    days = time / (60 * 24)
+    name = "event_" + DD(days) + "_" + DD(hours24) + "_" + DD(minutes)
+    //msg("Setting for: " + name)
+    o = GetObject(name)
+    if (o = null) {
+    create(name)
+    return (GetObject(name))
+    }
+    else {
+    return (null)
+    }
+  </function>
+
+  <!--
+  Sets the game time. This can either be sent as an integer, the number of minutes since midnight on day 1,
+  or as a string, in this format: 01:14:35 (i.e, 2:35 pm on day 1).
+  -->
+  <function name="SetTime" parameters="minutes">
+    if (TypeOf(minutes) = "string") {
+    l = Split(minutes, ":")
+    if (not ListCount(l) = 3) error("SetTime failed to understand " + minutes)
+    game.clockdays = ToInt(StringListItem(l, 0))
+    game.clockhours24 = ToInt(StringListItem(l, 1))
+    game.clockminutes = ToInt(StringListItem(l, 2))
+    game.clocktime = (game.clockdays * 24 + game.clockhours24) * 60 + game.clockminutes
+    }
+    else {
+    game.clocktime = minutes
+    game.clockminutes = game.clocktime % 60
+    game.clockhours24 = (game.clocktime / 60) % 24
+    game.clockdays = game.clocktime / (60 * 24) + 1
+    }
+    game.clock = TimeAsString()
+  </function>
+
+  <!--
+  Returns true if the game time is after the given time.
+  -->
+  <function name="IsAfter" parameters="time" type="boolean">
+    <![CDATA[
+    if (TypeOf(time) = "string") {
+      l = Split(time, ":")
+      if (not ListCount(l) = 3) error("SetTime failed to understand " + minutes)
+      days = ToInt(StringListItem(l, 0))
+      hours24 = ToInt(StringListItem(l, 1))
+      minutes = ToInt(StringListItem(l, 2))
+      time = (days * 24 + hours24) * 60 + minutes
+    }
+    return (game.clocktime > time)
+  ]]>
+  </function>
+
+  <!--
+  Returns the number of minutes since midnight on day 1.
+  -->
+  <function name="GetTime" type="int">
+    return (game.clocktime)
+  </function>
+
+  <!--
+  Pads the given number (or string) is a single digit, it will be padded with an extra leading zero.
+  -->
+  <function name="DD" parameters="s" type="string">
+    <![CDATA[
+    return (Pad (s, 2, "0"))
+  ]]>
+  </function>
+
+
+  <!--
+  Pads the given number or string is returned, padded with extra characters to the right to make it up to the given length.
+  -->
+  <function name="Pad" parameters="string, number, pad" type="string">
+    <![CDATA[
+    text = ""
+    string = ToString(string)
+    for (i, 1, number - LengthOf(string)) {
+      text = text + pad
+    }
+    return (text + string)
+  ]]>
+  </function>
+
+
+  <!--
+  Call this from an event to have it happen in the background. What that means is that
+  if the WAIT command will not terminate at this event.
+  -->
+  <function name="Quiet">
+    <![CDATA[
+    game.clockevent = false
+  ]]>
+  </function>
+
+
+  <!--
+  This gets called only when the action is successful; for text that is part of
+  the narrative. You can override this in your own code to flag that a command was successful
+  or to display narrative text differently to meta text.
+  -->
+  <function name="P" parameters="s">
+    msg(s)
+  </function>
+
+  <!--
+  Displays the the date as a string. Dates are relative to the year game.clockstartyear, which is 2000 by default.
+  You can override DisplayDate to alter how the date is actually shown.
+  Day 1 is the first of January, 2000 (or whatever year you set game.clockstartyear to). This means you must set the day to 
+  greater than zero in set time.
+  Note that this is an approximation to the Gregorian Calendar; it will handle simple leap years, but is not perfect.
+  It will consider 1900, for example, to be a leap year, however, it is fine for 1901 to 2099, which should cover most games.
+  This could be readily adapted for a fantasy calender.
+  -->
+  <function name="Date" type="string">
+    year = game.clockstartyear
+    day = game.clockdays
+    if (1 > day) error("Date function cannot cope with a day of zero or less")
+    // what year is it?
+    flag = true
+    while (flag) {
+    if (year % 4 = 0) {
+    days_this_year = 366
+    }
+    else {
+    days_this_year = 365
+    }
+    if (day > days_this_year) {
+    year = year + 1
+    day = day - days_this_year
+    }
+    else {
+    flag = false
+    }
+    }
+    // days in month
+    if (year % 4 = 0) {
+    days_in_months = Split("31;29;31;30;31;30;31;31;30;31;30;31", ";")
+    }
+    else {
+    days_in_months = Split("31;28;31;30;31;30;31;31;30;31;30;31", ";")
+    }
+    // what month is it?
+    month = 1
+    for (i, 0, 11) {
+    days_in_month = ToInt(StringListItem(days_in_months, i))
+    if (day > days_in_month) {
+    month = month + 1
+    day = day - days_in_month
+    }
+    else {
+    return (DisplayDate(year, month, day))
+    }
+    }
+  </function>
+
+  <!--
+  Shows the date, nicely formatted
+  -->
+  <function name="DisplayDate" parameters="year, month, day" type="string">
+    months = Split(";January;February;March;April;May;June;July;August;September;October;November;December", ";")
+    return ("" + day + "th of " + StringListItem(months, month) + ", " + year)
+  </function>
+
+  <!--END OF CLOCKLIB-->
+
+  <!--
+  NpcLib v1.2
+  
+  Documentation here:
+  http://docs.textadventures.co.uk/quest/independent_npcs.html
+  
+  
+  Quest version: 5.7
+  Written by: The Pixie, 2017
+  
+  
+  As of version 1.1:
+  This uses functions from PathLib by Jay Nabonne to give the GoTo command
+  http://docs.textadventures.co.uk/quest/libraries/path_library.html
+
+  
+  As of version 1.2
+  If you use ConvLib, an NPC will be automatically paused, but this has to be after ConvLib!
+  
+  You can add an "npc_using" script to an exit to have that run instead of the standard
+  phrase for moving. It has access to a local variable "npc". 
+  It will need to check for itself if the player is present to see it happened
+  (or use PrintIfHere).
+  For standard moves, you can now override the templates below, or the NpcLeaving function
+  (which   tells the player which way the NPC was heading).
+  
+  If game.npcdebug is set to true, you will see debugging info in blue; this will tell you
+  what NPCs are dong and planning to do, which should help you work out why they are not behaving.
+  
+  There are also groups now; NPCs can join groups and act together whilst in the group.
+  Discussion here
+  http://textadventures.co.uk/forum/samples/topic/1gpwpfattuyocvlg1sievq/controlling-npcs
+  
+  As of version 1.3
+  "Enter" and "leave" are conjugated so groups will "enter", an individual "enters"
+  
+  -->
+
+  <!-- Altered by KV -->
+  <dynamictemplate name="NpcEnters">GetDisplayName(object) + " " + Conjugate(object, "enter") + " from the {=GetExitByLink(game.pov.parent,npc.lastroom)}."</dynamictemplate>
+
+  <dynamictemplate name="NpcLeaves">GetDisplayName(object) + " " + Conjugate(object, "leave") + " the room."</dynamictemplate>
+
+
+  <type name="NpcType">
+    <takeaturn type="script">
+      <![CDATA[
+	  // Checks to see if "actions" has anything set up to avoid errors.
+	  if(HasAttribute(this, "actions")){
+        if (ListCount(this.actions) > 0){
+	      PrintIfDebug (this, "Outstanding actions: " + Join(this.actions, ","))
+        }
+        if (ListCount(this.actions) > 0 and not HasAttribute(this, "group")) {
+          s = StringListItem(this.actions, 0)
+          PrintIfDebug (this, "Doing: " + s)
+          if (NpcAct (this, s)) {
+            list remove (this.actions, s)
+            PrintIfDebug (this, "Deleted")
+          }
+        }
+	  }
+    ]]>
+    </takeaturn>
+  </type>
+
+
+  <type name="GroupType">
+    <inherit name="NpcType" />
+    <resetalias type="script">
+      <![CDATA[
+      this.alias = FormatList (GroupMembers(this), ", ", " and ", "no one")
+    ]]>
+    </resetalias>
+    <members type="objectlist" />
+    <visible type="boolean">false</visible>
+  </type>
+
+
+
+  <turnscript name="NpcTurnScript">
+    <enabled/>
+    <script>
+      <![CDATA[
+      foreach (o, AllObjects()) {
+        if (HasScript(o, "takeaturn")) {
+          if (GetBoolean(o, "paused")) {
+            o.paused = false
+          }
+          else {
+            do (o, "takeaturn")
+          }
+        }
+		if(HasAttribute(o,"following")) {
+          NpcGoToParent (o, o.following)
+	    }
+		if(DoesInherit(o,"GroupType")){
+		  //msg(o +" is a group of "+ListCount(o.members))
+		  if(ListCount(o.members)>1){
+		    o.plural = true
+		  }
+		  else{
+		    o.plural = false
+		  }
+		  else {
+		    o.plural = false
+		  }
+		}
+		else{
+		  o.plural = false
+		}
+      }
+	  
+    ]]>
+    </script>
+  </turnscript>
+
+
+  <function name="NpcFollow" parameters="npc, obj" type="boolean">
+    if(not HasAttribute(obj,"followers")){
+    obj.followers = NewObjectList()
+    }
+    if(not ListContains(obj.followers,npc)){
+    list add (obj.followers, npc)
+    npc.following = obj
+    if (obj=game.pov) {
+    named = "you"
+    }
+    else {
+    named = GetDisplayName(obj)
+    }
+    msg (CapFirst(GetDisplayName(npc)) + " begins to follow "+ named + ".")
+    }
+    else{
+    msg (CapFirst(GetDisplayName(npc)) + " is already following "+ named + ".")
+    }
+    return(true)
+  </function>
+
+  <function name="NpcUnfollow" parameters="npc, obj" type="boolean">
+    if(HasAttribute(obj,"followers")){
+    if(ListContains(obj.followers,npc)){
+    list remove (obj.followers, npc)
+    }
+    }
+    npc.following = null
+    if (obj=game.pov) {
+    named = "you"
+    }
+    else {
+    named = GetDisplayName(obj)
+    }
+    msg (CapFirst(GetDisplayName(npc)) + " stops following "+ named + ".")
+    return(true)
+  </function>
+
+  <function name="PrintIfDebug" parameters="o, s">
+    <![CDATA[
+    if (GetBoolean(game, "npcdebug")) {
+      msg ("{color:blue:{i:" + o.name + "} " + s + "}")
+    }
+  ]]>
+  </function>
+
+
+
+  <function name="PrintIfHere" parameters="room, s">
+    if (game.pov.parent = room) {
+    msg (s)
+    }
+  </function>
+
+
+  <!--
+  Overrides function in ConvLib so NPCs get paused when the player talks to them.
+  -->
+  <function name="AfterTopicEvent">
+    if(HasAttribute(game,"convlib_pausing")){
+    Pause (game.conversationalist)
+    }
+  </function>
+
+
+
+  <!--
+  Gets a list of members of the given grpup
+  -->
+  <function name="GroupMembers" parameters="group" type="objectlist">
+    return (FilterByAttribute(AllObjects(), "group", group))
+  </function>
+
+  <function name="SetGroupList" parameters="group" type="objectlist">
+    return (FilterByAttribute(AllObjects(), "group", group))
+  </function>
+
+  <!--
+  Gets a single member of a group (or the NPC if this is an NPC).
+  Used for when we want one member of the group to open the door or whatever.
+  -->
+  <function name="Member" parameters="group" type="object">
+    if (DoesInherit(group, "GroupType")) {
+    return (PickOneObject(FilterByAttribute(AllObjects(), "group", group)))
+    }
+    else {
+    return (group)
+    }
+  </function>
+
+
+
+  <!--
+  Pauses the NPC or the group she belongs to for one turn.
+  -->
+  <function name="Pause" parameters="npc">
+    if(HasAttribute(game,"nopause")) {
+    if(game.nopause) {
+    msg("Skipping pause")
+    return(false)
+    }
+    }
+    if (HasAttribute(npc, "group")) {
+    npc.group.paused = true
+    }
+    else {
+    npc.paused = true
+    }
+  </function>
+
+
+  <!--
+  Heart of the NPC system; NPC will do one action.
+  -->
+  <function name="NpcAct" parameters="npc, s" type="boolean">
+    ary = Split(s, ":")
+    if (ListCount(ary) = 1) {
+    PrintIfHere (npc.parent, s)
+    f = true
+    }
+    else {
+    if((StringListItem(ary, 1)) = "game.pov"){
+    game.currentobj = game.pov
+    }
+    else{
+    game.currentobj = GetObject (StringListItem(ary, 1))
+    }
+    if (game.currentobj = null) {
+    error ("Failed to find object: " + StringListItem(ary, 1))
+    }
+    game.currentnpc = npc
+    f = Eval("Npc" + StringListItem(ary, 0) + "(game.currentnpc, game.currentobj)")
+    }
+    return (f)
+  </function>
+
+  <function name="NpcMove" parameters="npc, obj" type="boolean">
+    oldroom = npc.parent
+    npc.parent = obj
+    if (DoesInherit(npc, "GroupType")) {
+    foreach (o, GroupMembers(npc)) {
+    o.parent = obj
+    }
+    }
+    if (not oldroom = npc.parent) {
+    exitname = GetExitByLink (oldroom, npc.parent)
+    handled = false
+    if (not exitname = null) {
+    exit = GetObject(exitname)
+    d = NewDictionary()
+    dictionary add (d, "npc", npc)
+    if (HasScript(exit, "npc_using")) {
+    do (exit, "npc_using", d)
+    handled = true
+    }
+    else if (oldroom = player.parent) {
+    NpcLeaving (npc, exit)
+    handled = true
+    }
+    }
+    if (not handled) {
+    //PrintIfHere (oldroom, DynamicTemplate("NpcLeaves", npc))
+    //PrintIfHere (npc.parent, DynamicTemplate("NpcEnters", npc))
+    switch(game.pov.parent){
+    case(oldroom){
+    NpcLeaving(npc,oldroom)
+    }
+    case(npc.parent){
+    NpcEntering(npc,exit)
+    }
+    }
+    }
+    }
+    return (true)
+  </function>
+
+  <!--
+  Used by NpcMove to describe the NPC leaving the current room, giving the direction headed.
+  -->
+  <function name="NpcLeaving" parameters="npc, exit" type="boolean">
+    msg(CapFirst(GetDisplayName(npc)) + " " + Conjugate(npc, "leave") + ", heading " + exit.alias + ".")
+  </function>
+
+  <function name="NpcEntering" parameters="npc, exit" type="boolean">
+    //Set showDirection to false for Pixie's original message, without mentioning which direction the NPC comes from.
+    game.showDirection = true
+    npc.enteringfrom = ReverseDirection(exit.alias)
+    //npc.enteringfrom = GetAttribute(GetObject(GetExitByLink(game.pov.parent,npc.lastroom)), "alias")
+    if (game.showDirection){
+    game.addthe = false
+    switch(npc.enteringfrom){
+    case("out") npc.enteringfrom = "outside"
+    case("in")  npc.enteringfrom = "inside"
+    case("up") npc.enteringfrom = "above"
+    case("down") npc.enteringfrom = "below"
+    default {
+    game.addthe = true
+    }
+    }
+    }
+    enterverb = "enters"
+    if(HasAttribute(npc,"plural")){
+    if(npc.plural){
+    enterverb = "enter"
+    }
+    }
+    msg(CapFirst(GetDisplayName(npc)) + " " + enterverb + "{if game.showDirection: from {if game.addthe:the }"+npc.enteringfrom+"}.")
+  </function>
+
+
+
+
+  <function name="NpcWait" parameters="npc, obj" type="boolean">
+    if (obj = game.pov or HasScript(obj, "takeaturn")) {
+    return (npc.parent = obj.parent)
+    }
+    else if (HasBoolean(obj, "locked")) {
+    return (not obj.locked)
+    }
+    else {
+    return (npc = obj.parent)
+    }
+  </function>
+
+  <function name="NpcWaitThenDoNext" parameters="npc, obj" type="boolean">
+    if(npc.parent = obj.parent) {
+    msg(npc.parent+" = "+obj.parent)
+    do (npc, "takeaturn")
+    return(true)
+    }
+    return(false)
+  </function>
+
+  <function name="NpcSearch" parameters="npc, obj" type="boolean">
+    exit = PickOneUnlockedExit (npc.parent)
+    oldroom = npc.parent
+    NpcMove(npc, exit.to)
+    return (obj.parent = npc.parent)
+  </function>
+
+
+  <function name="NpcGet" parameters="npc, obj" type="boolean">
+    obj.parent = npc
+    PrintIfHere (npc.parent, CapFirst(GetDisplayName(npc)) + " picks up the " + GetDisplayAlias(obj) + ".")
+    return (true)
+  </function>
+
+  <function name="NpcDrop" parameters="npc, obj" type="boolean">
+    obj.parent = npc.parent
+    PrintIfHere (npc.parent, CapFirst(GetDisplayName(npc)) + " drops the " + GetDisplayAlias(obj) + ".")
+    return (true)
+  </function>
+
+  <function name="NpcGive" parameters="npc, obj" type="boolean">
+    obj.parent = game.pov
+    PrintIfHere (npc.parent, CapFirst(GetDisplayName(Member(npc))) + " gives you the " + GetDisplayAlias(obj) + ".")
+    return (true)
+  </function>
+
+  <function name="NpcLock" parameters="npc, obj" type="boolean">
+    if (not obj.locked) {
+    obj.locked = true
+    PrintIfHere (npc.parent, CapFirst(GetDisplayName(Member(npc))) + " locks the " + GetDisplayAlias(obj) + ".")
+    }
+    return (true)
+  </function>
+
+  <function name="NpcUnlock" parameters="npc, obj" type="boolean">
+    if (obj.locked) {
+    obj.locked = false
+    PrintIfHere (npc.parent, CapFirst(GetDisplayName(Member(npc))) + " unlocks the " + GetDisplayAlias(obj) + ".")
+    }
+    return (true)
+  </function>
+
+  <function name="NpcOpen" parameters="npc, obj" type="boolean">
+    if (not obj.isopen) {
+    obj.isopen = true
+    PrintIfHere (npc.parent, CapFirst(GetDisplayName(Member(npc))) + " opens the " + GetDisplayAlias(obj) + ".")
+    }
+    return (true)
+  </function>
+
+  <function name="NpcClose" parameters="npc, obj" type="boolean">
+    if (obj.isopen) {
+    obj.isopen = false
+    PrintIfHere (npc.parent, CapFirst(GetDisplayName(Member(npc))) + " closes the " + GetDisplayAlias(obj) + ".")
+    }
+    return (true)
+  </function>
+
+  <function name="NpcWear" parameters="npc, obj" type="boolean">
+    if (not obj.worn) {
+    obj.worn = true
+    obj.parent = npc
+    PrintIfHere (npc.parent, CapFirst(GetDisplayName(npc)) + " puts on the " + GetDisplayAlias(obj) + ".")
+    }
+    return (true)
+  </function>
+
+  <function name="NpcRemove" parameters="npc, obj" type="boolean">
+    if (obj.worn) {
+    obj.worn = false
+    obj.parent = npc
+    PrintIfHere (npc.parent, CapFirst(GetDisplayName(npc)) + " takes off the " + GetDisplayAlias(obj) + ".")
+    }
+    return (true)
+  </function>
+
+  <function name="NpcJoin" parameters="npc, obj" type="boolean">
+    return (NpcInclude(obj, npc))
+  </function>
+
+  <function name="NpcPause" parameters="npc, obj" type="boolean">
+    return (true)
+  </function>
+
+  <function name="NpcGoToParent" parameters="npc, obj" type="boolean">
+    return (NpcGoTo(npc, obj.parent))
+  </function>
+
+  <function name="NpcGoTo" parameters="npc, obj" type="boolean">
+    l = PathLib_GetPathExt(npc.parent, obj, AllExits(), -1)
+    if(l = null) {
+    error ("There is no exit!")
+    }
+    if (ListCount(l) = 0) {
+    return (true)
+    }
+    exit = ObjectListItem(l, 0)
+    //Following line added by KV
+    npc.lastroom = npc.parent
+    NpcMove (npc, exit.to)
+    return (ListCount(l) = 1)
+  </function>
+
+  <function name="NpcScript" parameters="npc, obj" type="boolean">
+    npc.deletefromlist = true
+    if (HasScript (npc, "npcscript")) {
+    d = NewDictionary()
+    dictionary add (d, "item", obj)
+    do (npc, "npcscript", d)
+    }
+    return (npc.deletefromlist)
+  </function>
+
+
+
+  <!--
+  These five are for groups only.
+  -->
+  <function name="NpcWaitFor" parameters="npc, obj" type="boolean">
+    if (not DoesInherit(npc, "GroupType")) error (npc.name + " is not a group!")
+    return (obj.group = npc)
+  </function>
+
+  <function name="NpcCount" parameters="npc, obj" type="boolean">
+    if (not DoesInherit(npc, "GroupType")) error (npc.name + " is not a group!")
+    return (ListCount(GroupMembers(npc)) = obj.count)
+  </function>
+
+  <function name="NpcInclude" parameters="npc, obj" type="boolean">
+    if (not DoesInherit(npc, "GroupType")) error (npc.name + " is not a group!")
+    obj.group = npc
+    npc.members = npc.members + obj
+    do(npc, "resetalias")
+    npc.parent = obj.parent
+    return (true)
+  </function>
+
+  <function name="NpcExclude" parameters="npc, obj" type="boolean">
+    if (not DoesInherit(npc, "GroupType")) error (npc.name + " is not a group!")
+    obj.group = null
+    do(npc, "resetalias")
+    return (true)
+  </function>
+
+  <function name="NpcDisband" parameters="npc, obj" type="boolean">
+    if (not DoesInherit(npc, "GroupType")) error (npc.name + " is not a group!")
+    foreach (member, GroupMembers(npc)) {
+    member.group = null
+    }
+    do(npc, "resetalias")
+    return (true)
+  </function>
+
+  <!--
+  Added by KV
+  Prints the display name of npc as a proper link, with prefix.
+  -->
+
+  <function name="NpcLink" parameters="npc" type="string">
+    ol = ObjectLink(npc)
+    //pre = Replace(GetDisplayName(npc),GetDisplayAlias(npc),"")
+    pre = GetDefaultPrefix(npc)+" "
+    npcLink = pre + ol
+    return (npcLink)
+  </function>
+
+  <function name="NpcInventory" parameters="npc" type="boolean">
+    msg(CapFirst(NpcLink(npc)) + " looks through " + npc.possessive + " possessions.")
+    msg("")
+    msg(CapFirst(npc.gender) + " is carrying "+ FormatObjectList("",npc,"and","."))
+  </function>
+
+
+  <!--
+  Path-finding.
+  -->
+
+  <!-- Find a path from start to end using a set of exits and maxlength passed. -->
+  <function name="PathLib_GetPathExt" parameters="start, end, exits, maxlength" type="objectlist">
+    <![CDATA[
+    // From PathLib by Jay Nabonne
+    //msg("GetPathExt from " + start + " to " + end)
+    // It is more efficient to mark the rooms rather than track them in lists.
+    if (not HasInt(game, "pathID")) {
+      game.pathID = 0
+    }
+    // Bump the path ID for this path. This saves us from having to unmark all previously marked rooms.
+    game.pathID = game.pathID + 1
+
+    path = null
+    current = NewList()
+    entry = _PathLib_AddEntry(current, start)
+    dictionary add(entry, "path", NewObjectList())
+    length = 0
+    iterations = 0
+  	while (ListCount(current) <> 0 and path = null and (maxlength = -1 or length <= maxlength)) {
+      iterations = iterations + 1
+      //msg("iterations = " + iterations)
+  		entry = current[0]
+  		list remove(current, entry)
+      room = entry["room"]
+      //msg("room = " + room.name)
+      room.pathlib_visited = game.pathID
+      //msg("entry=" + entry)
+      if (room = end) {
+        path = entry["path"]
+        //msg("path=" + path)
+      } else {
+        foreach (exit, exits) {
+          toRoom = exit.to
+          //msg("toRoom = " + toRoom)
+          if (toRoom <> null) {
+            if (exit.parent = room and not GetBoolean(exit, "excludeFromPaths")) {
+              // This is a room to be investigated.
+              if (GetInt(toRoom, "pathlib_current") <> game.pathID and GetInt(toRoom, "pathlib_visited") <> game.pathID) {
+                // We have not touched this room yet. Add its exit to the list.
+                newEntry = _PathLib_AddEntry(current, toRoom)
+                // Assign to an object attribute to force a copy.
+                game.PathLib_pathtemp = entry["path"]
+                list add(game.PathLib_pathtemp, exit)
+                dictionary add(newEntry, "path", game.PathLib_pathtemp)
+                game.PathLib_pathtemp = null
+                //msg("Added")
+              }
+            }
+          }
+        }
+      }
+      length = ListCount(entry["path"])
+  	}
+    //msg("iterations = " + iterations + ", path count = " + ListCount(path))
+  	return (path)
+    ]]>
+  </function>
+
+  <!-- Add a room entry to the list. -->
+  <function name="_PathLib_AddEntry" parameters="list, room" type="dictionary">
+    // From PathLib by Jay Nabonne
+    <!-- msg ("Add entry: " + room.name + "(length:" + ListCount(list) + ")") -->
+    entry = NewDictionary()
+    dictionary add(entry, "room", room)
+    list add(list, entry)
+    room.pathlib_current = game.pathID
+    return (entry)
+  </function>
+
+
+
+
+
+  <!-- Interface -->
+  <tab>
+    <parent>_ObjectEditor</parent>
+    <caption>NPCs</caption>
+    <mustnotinherit>editor_room; defaultplayer</mustnotinherit>
+
+    <control>
+      <controltype>dropdowntypes</controltype>
+      <caption>Type</caption>
+      <types>*=None; NpcType=NPC; GroupType=Group</types>
+      <width>150</width>
+    </control>
+
+    <control>
+      <caption>List of actions to perform</caption>
+      <controltype>list</controltype>
+      <attribute>actions</attribute>
+      <width>200</width>
+      <mustinherit>NpcType</mustinherit>
+      <editprompt>Action (eg Move:kitchen, or just text)</editprompt>
+    </control>
+
+    <control>
+      <controltype>title</controltype>
+      <caption>Available actions:</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Move: NPC will move directly to the indicated room</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>GoTo: NPC will go to the specified location, one turn per room. Use GoToParent to have the NPC navigate to the same room as an item or another NPC.</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Get/Drop/Give: NPC will pick up/drop/give to the player the indicated item (whether it is there or not)</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Lock/Unlock/Open/Close/Wear/Remove: NPC will lock/unlock/open/close/wear/remove the indicated item (whether it is there or not)</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Search: NPC will move via a random exit, and will continue to do so until in the same room as the indicated item</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Wait: NPC will wait, and will continue to do so until the player or other NPC is the same room if the indicated item is the player or an NPC, or the indicated item is unlocked if it has a "locked" attribute, or until given the indicated item otherwise.</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Pause: NPC does nothing for one turn.</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Script: Runs the NPC's "npcscript" script. If this sets the NPC's "deletefromlist" attribute to false, then this will run again next turn.</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>You can add your own verbs; add a new function called "Npc", followed by the verb, have it return a Boolean, and take two attributes, the NPC and the item.</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+
+    <control>
+      <controltype>title</controltype>
+      <caption>Script</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+
+    <control>
+      <controltype>script</controltype>
+      <caption>NPC script (run with NpcScript)</caption>
+      <attribute>npcscript</attribute>
+      <width>200</width>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Set this.deletefromlist to false to have the script run again next turn.</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+
+  </tab>
+  <!--END OF NPCLIB-->
+
+    <function name="ScopeReachableNotHeldForRoom" parameters="room" type="objectlist">
+      <![CDATA[
+    result = NewObjectList()
+    foreach (obj, GetAllChildObjects(room)) {
+      if (ContainsReachable(room, obj) and obj <> game.pov and not Contains(game.pov, obj)) {
+        list add (result, obj)
+      }
+    }
+    if (HasScript(game, "scopebackdrop")) {
+      dict = NewDictionary()
+      dictionary add (dict, "items", result)
+      do (game, "scopebackdrop", dict)
+    }
+    else if (HasAttribute(game, "scopebackdrop")) {
+      result = ListCombine (game.scopebackdrop, result)
+      dict = NewDictionary()
+      dictionary add (dict, "items", result)
+    }
+    return (result)
+  ]]>
+    </function>
+
+    <function name="AddToScope" parameters="obj">
+      if (not ListContains(game.scopebackdrop,obj)) {
+      list add (game.scopebackdrop, obj)
+      }
+    </function>
+
+    <function name="RemoveFromScope" parameters="obj">
+      if (ListContains(game.scopebackdrop,obj)) {
+      list remove (game.scopebackdrop, obj)
+      }
+    </function>
+
+    <function name="GetListDisplayAlias" parameters="obj" type="string">
+      if (HasString(obj, "listalias")) {
+        result = ProcessText(obj.listalias)
+      }
+      else {
+        result = ProcessText(GetDisplayAlias(obj))
+      }
+      return (result)
+    </function>
+
+    <!--
+		GridImgLib 
+		
+		by KV
+		
+		Special Guest Coder:  MrAngel
+		
+		VERSION 1.0
+		
+		This will allow you to set a picture to display in place of a room's 
+		standard map image.  
+		
+		All you need to do is include this library, make sure the map is enabled,
+		then go to the new "Grid Image" tab on the room object.  From there, you
+		can use the file browser to import an image file, or you can enter a URL
+		to use an online image.  
+		
+		(You can NOT enter the path to the file!  If using a local image,
+		the file MUST be in the game's main folder!!!)
+		
+		===
+		
+		IMPORTANT NOTE:
+		
+		If you want to switch back to using the standard map image, you must completely
+		remove the "grid_image" attribute from the room!!!
+		
+		===
+		
+		Designed for Quest 5.7.1
+		Year of publication: 2018
+
+-->
+
+
+      <function name="SetGridImgPath" parameters="filename">
+        JS.setImagePath (GetFileUrl("_FILENAME_"))
+      </function>
+
+      <function name="Grid_DrawRoom" parameters="room, redraw, playerobject">
+        <![CDATA[
+		if (room.grid_render) {
+		  if (redraw or not Grid_GetRoomBooleanForPlayer(playerobject, room, "grid_isdrawn")) {
+			if (room.parent <> null) {
+			  Grid_DrawRoom (room.parent, redraw, playerobject)
+			}
+			gridx = Grid_GetGridCoordinateForPlayer(game.pov, room, "x")
+			gridy = Grid_GetGridCoordinateForPlayer(game.pov, room, "y")
+			JS.Grid_DrawBox (gridx, gridy, Grid_GetGridCoordinateForPlayer(game.pov, room, "z"), room.grid_width, room.grid_length, room.grid_border, room.grid_borderwidth, room.grid_fill, room.grid_bordersides)
+			if (HasString(room, "grid_image")) {
+			  imgfile = false
+			  imgexts = Split(".png;.jpeg;.gif;.jpg;svg",";")
+			  room.imageid = room.name+"-grid-image"
+			  JS.eval ("var roomImageId = '"+room.imageid+"';var gridX = '"+gridx+"';var gridY = '"+gridy+"';var roomGridWidth = '"+room.grid_width+"';var roomGridHeight = '"+room.grid_length+"';customDrawImage('"+room.grid_image+"');")
+			}
+			if (LengthOf(room.grid_label) > 0) {
+			  label_x = Grid_GetGridCoordinateForPlayer(game.pov, room, "x") + room.grid_width/2.0
+			  label_y = (Grid_GetGridCoordinateForPlayer(game.pov, room, "y") + room.grid_length/2.0) - 0.5
+			  JS.Grid_DrawLabel (label_x, label_y, Grid_GetGridCoordinateForPlayer(game.pov, room, "z"), room.grid_label)
+			}
+			foreach (exit, AllExits()) {
+			  if (exit.grid_render and exit.parent = room and exit.grid_length > 0) {
+				Grid_DrawLine (Grid_GetGridCoordinateForPlayer(game.pov, exit, "x"), Grid_GetGridCoordinateForPlayer(game.pov, exit, "y"), Grid_GetGridCoordinateForPlayer(game.pov, exit, "end_x"), Grid_GetGridCoordinateForPlayer(game.pov, exit, "end_y"), game.mapexitcolour, game.mapexitwidth)
+			  }
+			}
+			Grid_SetRoomBooleanForPlayer (playerobject, room, "grid_isdrawn", true)
+		  }
+		}
+	]]>
+      </function>
+
+      <!--
+	
+	IMPORTANT:
+	
+	Do NOT comment out anything in the "js" attribute!
+	
+	Do NOT put any notes inside of the "js" tag, either!
+	
+	If you do, none of the JS functions will work!!!
+	
+	-->
+
+      <object name="gridImgLib">
+        <attr name="startup" type="script">
+          <![CDATA[
+		  js = Replace(gridImgLib.js,"<br/>","")
+		  JS.eval(js)
+		  SetGridImgPath("")
+		  foreach (room, AllObjects()) {
+			if (HasAttribute(room,"grid_image")) {
+			  JS.eval ("imagesToCheck.push('"+room.grid_image+"');checkImages();")
+			}
+		  }
+		]]>
+        </attr>
+        <js>
+          <![CDATA[
+			var questImagePath ="";
+
+			setImagePath = function(path) {
+			  questImagePath = path;
+			};
+
+			getFileUrlJS = function(filename){
+			  if(filename.indexOf("://") > 0) {
+				return (filename);
+			  } else {
+				return questImagePath.replace("_FILENAME_", filename);
+			  }
+			};
+			var imagesToCheck = [];
+
+			function checkImages(){
+				imagesToCheck.forEach(function(img){
+					isFileGood(img)
+				});
+			};
+
+			var failedImgs = [];
+
+			function imgFail(imgFailed){
+				failedImgs.push(imgFailed.src);
+			};
+
+			function isFileGood(url){
+				imgFile = getFileUrlJS(url);
+				addText("<img style='display:none' onerror='imgFail(this)' src='"+imgFile+"'/>");
+			};
+
+			customDrawImage = function(url){
+				var imgFile = getFileUrlJS(url);
+				var failnumber = failedImgs.indexOf(imgFile);
+				if(failnumber === -1){
+					gridApi.drawCustomLayerImage(roomImageId, imgFile, parseFloat(gridX), parseFloat(gridY), parseFloat(roomGridWidth), parseFloat(roomGridHeight));
+				}
+			};
+
+		]]>
+        </js>
+      </object>
+
+
+      <!--
+	Add a tab to the editor.
+	-->
+
+      <tab>
+        <parent>_ObjectEditor</parent>
+        <onlydisplayif>game.gridmap</onlydisplayif>
+        <caption>Grid Image(optional)</caption>
+        <title>Select an image to display in the map</title>
+        <mustnotinherit>editor_object</mustnotinherit>
+        <control>
+          <controltype>checkbox</controltype>
+          <caption>Enter a URL (or file name) instead of loading a local image</caption>
+          <attribute>gridimg_custompath</attribute>
+        </control>
+        <control>
+          <caption>Grid Image</caption>
+          <controltype>file</controltype>
+          <attribute>grid_image</attribute>
+          <source>[EditorImageFormats]</source>
+          <filefiltername>Picture Files</filefiltername>
+          <onlydisplayif>not HasAttribute(this,"gridimg_custompath")</onlydisplayif>
+          <preview/>
+        </control>
+        <control>
+          <caption>Grid Image</caption>
+          <controltype>file</controltype>
+          <attribute>grid_image</attribute>
+          <source>[EditorImageFormats]</source>
+          <filefiltername>Picture Files</filefiltername>
+          <onlydisplayif>not this.gridimg_custompath</onlydisplayif>
+          <preview/>
+        </control>
+        <control>
+          <controltype>label</controltype>
+          <onlydisplayif>not this.gridimg_custompath</onlydisplayif>
+          <caption>THIS FILE WILL BE IMPORTED BY QUEST</caption>
+        </control>
+        <control>
+          <caption>Enter the URL or file name</caption>
+          <attribute>grid_image</attribute>
+          <controltype>textbox</controltype>
+          <onlydisplayif>this.gridimg_custompath</onlydisplayif>
+        </control>
+        <control>
+          <controltype>label</controltype>
+          <onlydisplayif>this.gridimg_custompath</onlydisplayif>
+          <caption>IF ENTERING A FILE NAME, BE SURE THE FILE IS IN THE GAME'S FOLDER!!!</caption>
+        </control>
+      </tab>
+
+
+    <function name="AddJsScript" parameters="script">
+      <![CDATA[
+    JS.addScript ("<script>"+script+"</script>")
+  ]]>
+    </function>
+    <function name="AddCssStyle" parameters="style">
+      <![CDATA[
+    JS.eval ("$('head').append('<style>"+style+"</style>');")
+  ]]>
+    </function>
+    
+  <!--
+  
+  VerboseLib
+  Version 1.0
+  for Quest version 5.7.2
+  by KV
+  2018
+  
+  
+  This will allow you to use BRIEF, SUPERBRIEF, or VERBOSE commands to control the room descriptions, just like in INFOCOM games.
+  
+  
+-->
+
+
+  <object name="VerboseLib_init_object">
+    <feature_startscript />
+    <attr name="_initialise_" type="script">
+	  game.autodescription_descriptionBak = game.autodescription_description
+    </attr>
+  </object>
+
+  <command name="brief_cmd">
+    <pattern>brief</pattern>
+    <script><![CDATA[
+      if (not GetBoolean(game, "brief_descriptions")) {
+        game.notarealturn = true
+        game.brief_descriptions = true
+        game.autodescription_description = game.autodescription_descriptionBak
+      }
+      msg ("Room Descriptions are now set to \"BRIEF\".  Room descriptions will only print if you haven't visited a room yet.<br/>")
+    ]]></script>
+  </command>
+
+  <command name="superbrief_cmd">
+    <pattern>superbrief;short</pattern>
+    <script><![CDATA[
+      game.notarealturn = true
+      game.autodescription_description = 0
+      msg ("Room Descriptions are now set to \"SUPERBRIEF\".  Room descriptions will not print (even if you haven't visited the room before).<br/>")
+    ]]></script>
+  </command>
+
+  <command name="verbose_cmd">
+    <pattern>verbose;long</pattern>
+    <script><![CDATA[
+      game.notarealturn = true
+      game.autodescription_description = game.autodescription_descriptionBak
+      game.brief_descriptions = false
+      msg ("Room Descriptions are now set to \"VERBOSE\".  Room descriptions will always print.<br/>")
+    ]]></script>
+  </command>
+
+
+  <function name="ShowRoomDescription"><![CDATA[
+    if (GetBoolean(game,"brief_descriptions")) {
+      if (game.pov.parent.visited) {
+        game.autodescription_description = 0
+      }
+    }
+    isDark = CheckDarkness()
+    if (isDark) {
+      descriptionfield = "darkroomdescription"
+    }
+    else {
+      descriptionfield = "description"
+    }
+    if (game.autodescription) {
+      desc = ""
+      for (i, 1, 4) {
+        if (i = game.autodescription_youarein) {
+          if (game.autodescription_youarein_useprefix) {
+            youarein = game.pov.parent.descprefix
+            desc = AddDescriptionLine (desc, youarein + " " + GetDisplayName(game.pov.parent) + ".")
+          }
+          else {
+            desc = AddDescriptionLine (desc, "<b>" + CapFirst(GetDisplayName(game.pov.parent)) + "</b>")
+          }
+          if (game.autodescription_youarein_newline) {
+            msg (desc + "<br/>")
+            desc = ""
+          }
+        }
+        if (i = game.autodescription_youcansee) {
+          objects = FormatObjectList(game.pov.parent.objectslistprefix, GetNonTransparentParent(game.pov.parent), Template("And"), ".")
+          desc = AddDescriptionLine(desc, objects)
+          if (game.autodescription_youcansee_newline) {
+            msg (desc + "<br/>")
+            desc = ""
+          }
+        }
+        if (i = game.autodescription_youcango) {
+          exits = FormatExitList(game.pov.parent.exitslistprefix, GetExitsList(), Template("Or"), ".")
+          desc = AddDescriptionLine(desc, exits)
+          if (game.autodescription_youcango_newline) {
+            msg (desc + "<br/>")
+            desc = ""
+          }
+        }
+        if (i = game.autodescription_description) {
+          if (HasScript(game.pov.parent, descriptionfield)) {
+            if (LengthOf(desc) > 0) {
+              msg (desc)
+              desc = ""
+            }
+            do (game.pov.parent, descriptionfield)
+            if (game.autodescription_description_newline) {
+              msg ("")
+            }
+          }
+          else {
+            desc = AddDescriptionLine(desc, GetRoomDescription())
+            if (game.autodescription_description_newline) {
+              msg (desc + "<br/>")
+              desc = ""
+            }
+          }
+        }
+      }
+      if (LengthOf(desc) > 0) {
+        msg (desc)
+      }
+    }
+    else {
+      if (HasScript(game.pov.parent, descriptionfield)) {
+        do (game.pov.parent, descriptionfield)
+      }
+      else {
+        fulldesc = GetRoomDescription()
+        if (LengthOf(fulldesc) > 0) {
+          msg (fulldesc)
+        }
+      }
+    }
+    if (GetBoolean(game,"brief_descriptions")) {
+      game.autodescription_description = game.autodescription_descriptionBak
+    }
+  ]]></function>
+    
+  <verb name="enter_verb">
+    <pattern>enter #object#;get in #object#;get into #object#</pattern>
+    <property>enter</property>
+    <defaultexpression>"You can't enter "+object.article+"."</defaultexpression>
+    <scope>notheld</scope>
+  </verb>
+  
+  <function name="ShowMenu" parameters="caption, options, allowCancel, callback"><![CDATA[
+    if (GetBoolean(game, "enablehyperlinks")){
+		outputsection = StartNewOutputSection()
+		msg (caption)
+		count = 0
+		game.menuoptionskeys = NewStringList()
+		game.menudisplayedoptions = NewStringDictionary()
+		foreach (option, options) {
+		  count = count + 1
+		  if (TypeOf(options) = "stringdictionary") {
+			optionText = StringDictionaryItem(options, option)
+			optiontag = option
+			style = GetCurrentLinkTextFormat()
+			list add (game.menuoptionskeys, option)
+		  }
+		  else if (TypeOf(option) = "string") {
+			optionText = option
+			optiontag = option
+			style = GetCurrentLinkTextFormat()
+			list add (game.menuoptionskeys, option)
+		  }
+		  else if (TypeOf(option) = "object") {
+			optionText = GetDisplayAlias(option)
+			optiontag = option.name
+			colour = ""
+			if (HasString(option, "linkcolour") and GetUIOption("UseGameColours") = "true") {
+			  colour = option.linkcolour
+			}
+			else {
+			  colour = GetLinkTextColour()
+			}
+			style = GetCurrentTextFormat(colour)
+			list add (game.menuoptionskeys, option.name)
+		  }
+		  else {
+			error ("ShowMenu cannot handle a " + TypeOf(option))
+		  }
+		  dictionary add (game.menudisplayedoptions, optiontag, optionText)
+		  msg (count + ": <a class=\"cmdlink\" style=\"" + style + "\" onclick=\"ASLEvent('ShowMenuResponse','" + EscapeQuotes(optiontag) + "')\">" + optionText + "</a>")
+		}
+		EndOutputSection (outputsection)
+		game.menuoptions = options
+		game.menuallowcancel = allowCancel
+		game.menucallback = callback
+		game.menuoutputsection = outputsection
+	}
+	else{
+		outputsection = StartNewOutputSection()
+		msg (caption)
+		count = 0
+		game.menuoptionskeys = NewStringList()
+		game.menudisplayedoptions = NewStringDictionary()
+		foreach (option, options) {
+		  count = count + 1
+		  if (TypeOf(options) = "stringdictionary") {
+			optionText = StringDictionaryItem(options, option)
+			optiontag = option
+			list add (game.menuoptionskeys, option)
+		  }
+		  else if (TypeOf(option) = "string") {
+			optionText = option
+			optiontag = option
+			list add (game.menuoptionskeys, option)
+		  }
+		  else if (TypeOf(option) = "object") {
+			optionText = GetDisplayAlias(option)
+			optiontag = option.name
+			list add (game.menuoptionskeys, option.name)
+		  }
+		  else {
+			error ("ShowMenu cannot handle a " + TypeOf(option))
+		  }
+		  dictionary add (game.menudisplayedoptions, optiontag, optionText)
+		  msg (count + ": " + optionText)
+		}
+		EndOutputSection (outputsection)
+		game.menuoptions = options
+		game.menuallowcancel = allowCancel
+		game.menucallback = callback
+		game.menuoutputsection = outputsection
+	}
+  ]]></function>
+    <function name="HandleMenuTextResponse" parameters="input" type="boolean"><![CDATA[
+    handled = false
+    if (IsInt(input)) {
+      number = ToInt(input)
+      if (number > 0 and number <= ListCount(game.menuoptionskeys)) {
+        handled = true
+        ShowMenuResponse (StringListItem(game.menuoptionskeys, number - 1))
+      }
+    }
+    else if (HasAttribute(game, "menudisplayedoptions")) {
+      foreach (option, game.menudisplayedoptions) {
+        opt = LCase(Trim(StringDictionaryItem(game.menudisplayedoptions, option)))
+        answer = LCase(Trim(input))
+        if (opt = answer) {
+          ShowMenuResponse (option)
+          return (true)
+        }
+        else if (GetBoolean(game,"asking")) {
+          if (answer = "y") {
+            ShowMenuResponse ("Yes")
+            game.asking = false
+            return (true)
+          }
+          else if (answer = "n") {
+            ShowMenuResponse ("No")
+            game.asking = false
+            return (true)
+          }
+        }
+      }
+    }
+    return (handled)
+  ]]></function>
+
+  <function name="ClearMenu">
+    HideOutputSection (game.menuoutputsection)
+    game.menuoutputsection = null
+    game.menuoptions = null
+    game.menudisplayedoptions = null
+    game.menucallback = null
+  </function>
+  
+  <!--
+	DoorLib
+	Version 1.5
+	by KV (with much help from mrangel)
+	Quest version: 5.7.2
+	2018
+	
+	Inspired by the following post:
+	http://textadventures.co.uk/forum/quest/topic/9m2lavmzregstombcuxrba/fun-with-doors
+	
+	Version 1.6
+	
+	Added "After opening" script to door tab. 
+	
+	Thanks to Forgewright!
+	
+	Version 1.7
+	
+	Added "Description" to door tab.
+	
+	Thanks to Forgewright!
+	
+	Version 1.8
+	
+	Minor bug fixes (GUI).
+
+-->
+
+  <object name="DoorLibInit_obj">
+    <feature_startscript/>
+	<attr name="_initialise_" type="script">
+	  GenerateDoors
+	  SetTurnTimeout(2){
+	    destroy("DoorLibInit_obj")
+	  }
+	</attr>
+  </object>
+  
+  <object name="door_0">
+    <inherit name="editor_object" />
+    <inherit name="openable" />
+	<inherit name="container_lockable"/>
+    <feature_container />
+  </object>
+
+  <function name="GenerateDoors"><![CDATA[
+      foreach (exit, AllExits()) {
+        if (GetBoolean(exit,"hasdoor")) {
+          this = CloneObjectAndMove(door_0,exit.parent)
+          if (not GetBoolean(exit,"doorhascustomalias")){
+		    this.alias = "door leading " + exit.alias
+		  }
+		  else {
+		    this.alias = exit.doorcustomalias
+		  }
+          exit.door = this
+		  this.exit = exit
+          this.to = exit.to
+		  this.locked = false
+		  this.displayverbs = this.displayverbs - "Take" + "Use"
+		  if (HasAttribute(exit,"dooronopen")){
+			  this.onopen = exit.dooronopen
+		  }
+		  if (GetBoolean(exit,"doorusecustomprefix")){
+		    this.usedefaultprefix = false
+		  }
+		  if (HasAttribute(exit,"doorprefix")){
+		    this.prefix = exit.doorprefix
+		  }
+		  if (GetBoolean(exit,"hasotherside")){
+			this.changedisopen => {
+			  if (not HasAttribute(this,"otherside")) {
+			    this.exit.rev_exit = GetObject(GetExitByLink(this.to,this.parent))
+				if (HasAttribute(this.exit.rev_exit,"door")){
+				  this.otherside = this.exit.rev_exit.door
+			    }
+			  }
+			  if (HasAttribute(this,"otherside")) {
+			    this.otherside.isopen = this.isopen
+			  }
+			  if ((this.isopen) and HasAttribute(this,"onopen")){
+			    do(this,"onopen")
+			  }
+			}
+			this.changedlocked => {
+			  if (not HasAttribute(this,"otherside")) {
+			    this.exit.rev_exit = GetObject(GetExitByLink(this.to,this.parent))
+				if (HasAttribute(this.exit.rev_exit,"door")){
+				  this.otherside = this.exit.rev_exit.door
+				}
+			  }
+			  if (HasAttribute(this,"otherside")) {
+			    this.otherside.locked = this.locked
+			  }
+			  this.exit.locked = this.locked
+			}
+		  }
+          if (HasAttribute(exit, "doorlook")){
+			this.onlook = exit.doorlook
+		  }
+		  if (HasAttribute (exit, "doornoprintifopen")){
+		    this.noprintifopen = true
+		  }
+		  this.look => {
+		    game.text_processor_this = this
+			if (HasAttribute(this, "onlook")){
+			  if (HasScript(this, "onlook")){
+			    do (this, "onlook")
+			  }
+			  if (HasString (this, "onlook")){
+			    msg(this.onlook)
+			  }
+  		      if (not GetBoolean(this, "noprintifopen")){
+			    msg("It is {either this.isopen:open|closed}{if this.locked: and locked}.")
+			  }
+			}
+		  }
+          this.use => {
+            if (HasScript(this.exit,"script")){
+			  do (this.exit,"script")
+			}
+			else {
+			  MoveObject(game.pov,this.to)
+			  this.open = true
+			}
+          }
+		  if (GetBoolean(exit,"doorhasmsg") or GetBoolean(exit,"doorislockable")){
+            this.scenery = false
+		  }
+		  else {
+		    this.scenery = exit.doorisscenery
+		  }
+          this.open = true
+          this.openscript => {
+            if (not this.isopen) {
+              if (not GetBoolean(this,"locked")) {
+                msg ("Opened.")
+                this.isopen = true
+              }
+              else {
+                msg ("It appears to be locked.")
+              }
+            }
+            else {
+              msg ("It is already open.")
+            }
+          }
+          this.close = true
+          this.closescript => {
+            if (this.isopen) {
+              msg ("Closed.")
+              this.isopen = false
+            }
+          }
+		  if (not HasAttribute(this.parent,"doors")) {
+		    this.parent.doors = NewObjectDictionary()
+		  }
+		  dictionary add (this.parent.doors,this.name,this)
+		  if (not HasAttribute(this.to,"connecting_doors")) {
+		    this.to.connecting_doors = NewObjectDictionary()
+		  }
+		  dictionary add (this.to.connecting_doors,this.name,this)  
+		  if (GetBoolean(exit,"doorislockable")){
+		    exit.hasdoormsg = true
+		    this.scenery = false
+			this.visible = true
+		    this.keycount = exit.doorkeycount
+			this.key = exit.doorkey
+			this.key1 = exit.doorkey
+			if (this.keycount>1) this.key2 = exit.doorkey2
+			if (this.keycount>2) this.key3 = exit.doorkey3
+			if (this.keycount>3) this.key4 = exit.doorkey4
+			if (this.keycount>4) this.key5 = exit.doorkey5
+			this.locked = GetBoolean(exit,"doorlocked")
+			this.autounlock = GetBoolean(exit,"doorautounlock")
+			this.autoopen = GetBoolean(exit,"doorautoopen")
+			this.nokeymessage = exit.doornokeymessage
+			this.unlockmessage = exit.doorunlockmessage
+			this.lockmessage = exit.doorlockmessage
+			this.canlockopen = GetBoolean(exit,"doorcanlockopen")
+			this.onlock = exit.dooronlock
+			this.onunlock = exit.dooronunlock
+			this.displayverbs = this.displayverbs + Split("Lock;Unlock",";")
+			
+		  }
+		  
+		  if (GetBoolean (exit,"hasdoormsg")){
+		    exit.runscript = true
+			exit.doormsg = "(You open the door first.)"
+			if (HasString(exit,"customdoormsg")){
+			  if (not exit.customdoormsg = "") {
+			    exit.doormsg = exit.customdoormsg
+			  }
+			}
+			if (HasScript(exit,"script")) {
+			  exit.script_bak = exit.script
+			}
+			
+		    exit.script => {
+		      if (not GetBoolean(this.door,"locked")) {
+		        if (not this.door.isopen) {
+		    	  this.door.isopen = true
+		      	   msg (this.doormsg)
+				   if (HasAttribute(this.door,"otherside")){
+				     if(GetBoolean(this.door.otherside,"locked")){
+					   msg("The door closes behind you.")
+					   this.door.isopen = false
+					 }
+				   }
+		        }
+				if (HasAttribute(this,"script_bak")) {
+				  do (this, "script_bak")
+				}
+				else {
+		          game.pov.parent = this.to
+				}
+		      }
+		      else {
+		        msg ("The door is locked.")
+		      }
+		    }
+		  }
+        }
+      }
+      destroy ("door_0")
+  ]]></function>
+  
+  
+  
+  
+  <!-- TABS -->
+  
+  <tab>
+    <parent>_ExitEditor</parent>
+	<caption>Door Settings</caption>
+	
+
+  	  
+	<control>
+	  <controltype>checkbox</controltype>
+	  <caption>Add a door</caption>
+	  <attribute>hasdoor</attribute>
+	</control>
+	
+	<control>
+	  <onlydisplayif>this.hasdoor</onlydisplayif>
+	  <controltype>checkbox</controltype>
+	  <caption>Door is two-sided</caption>
+	  <attribute>hasotherside</attribute>
+	</control>
+	
+	<control>
+	  <onlydisplayif>this.hasdoor</onlydisplayif>
+	  <controltype>checkbox</controltype>
+	  <caption>Use custom alias</caption>
+	  <attribute>doorhascustomalias</attribute>
+	</control>
+	
+	<control>
+	  <caption>Door alias</caption>
+	  <controltype>textbox</controltype>
+	  <width>300</width>
+	  <attribute>doorcustomalias</attribute>
+	  <onlydisplayif>this.doorhascustomalias</onlydisplayif>
+	  <nullable/>
+	</control>
+	
+	<control>
+      <controltype>checkbox</controltype>
+      <caption>Use a custom prefix</caption>
+      <attribute>doorusecustomprefix</attribute>
+    </control>
+
+    <control>
+	  <onlydisplayif>this.doorusecustomprefix</onlydisplayif>
+      <caption>[EditorObjectSetupPrefix]</caption>
+      <controltype>textbox</controltype>
+      <attribute>doorprefix</attribute>
+    </control>
+
+	
+	<control>
+	  <onlydisplayif>this.hasdoor</onlydisplayif>
+	  <controltype>checkbox</controltype>
+	  <caption>Door is scenery</caption>
+	  <attribute>doorisscenery</attribute>
+	</control>
+	
+
+
+	<control>
+      <onlydisplayif>this.hasdoor</onlydisplayif>
+      <caption>Custom door description (Default is: "It is open/closed.")</caption>
+      <controltype>multi</controltype>
+      <attribute>doorlook</attribute>
+      <types>
+        null=[TypeNoDescription]; string=[TypeText]; script=[TypeRunScript]
+      </types>
+      <editors>
+        string=richtext
+      </editors>
+    </control>
+	
+	<control>
+	  <onlydisplayif>HasAttribute(this, "doorlook")</onlydisplayif>
+	  <controltype>checkbox</controltype>
+	  <caption>Do not print "It is open/closed." when examining door</caption>
+	  <attribute>doornoprintifopen</attribute>
+	</control>
+	
+	<control>
+      <controltype>script</controltype>
+      <caption>[EditorObjectContainerAfteropening]</caption>
+      <attribute>dooronopen</attribute>
+	  <nullable/>
+    </control>
+	
+	<control>
+	  <onlydisplayif>this.hasdoor</onlydisplayif>
+	  <controltype>checkbox</controltype>
+	  <caption>Add 'first opening door' message to exit script (to print when automatically opening door on exit)</caption>
+	  <attribute>hasdoormsg</attribute>
+	</control>
+	
+	<control>
+	  <caption>Message when opening door before using exit (default is "(You open the door first.)")</caption>
+	  <controltype>textbox</controltype>
+	  <attribute>customdoormsg</attribute>
+	  <onlydisplayif>this.hascustomdoormsg</onlydisplayif>
+	  <nullable/>
+	</control>
+	
+	<control>
+	  <onlydisplayif>this.hasdoormsg</onlydisplayif>
+	  <caption>Use custom message when automatically opening door on exit</caption>
+	  <controltype>checkbox</controltype>
+	  <attribute>hascustomdoormsg</attribute>
+	</control>
+	
+	<control>
+	  <onlydisplayif>this.hasdoor</onlydisplayif>
+	  <controltype>checkbox</controltype>
+	  <caption>Door is lockable</caption>
+	  <attribute>doorislockable</attribute>
+	</control>
+	
+	<control>
+      <controltype>title</controltype>
+      <caption>[EditorObjectContainerLocking]</caption>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+
+    <control>
+      <controltype>number</controltype>
+      <caption>Number of keys to unlock the door</caption>
+      <attribute>doorkeycount</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+      <minimum>0</minimum>
+      <maximum>5</maximum>
+    </control>
+	
+	<control>
+	  <controltype>label</controltype>
+	  <onlydisplayif>this.doorislockable and this.hasotherside</onlydisplayif>
+	  <caption>NOTE:  IF YOU WISH THIS DOOR TO BE UNLOCKABLE FROM THE OTHER SIDE, YOU MUST ALSO ADD
+ANY KEYS YOU WISH TO WORK THE OTHER SIDE OF THIS DOOR TO THE DOOR SETTINGS ON THAT EXIT!!!</caption>
+	</control>
+
+    <control>
+      <controltype>objects</controltype>
+      <caption>[EditorObjectContainerKey]</caption>
+      <attribute>doorkey</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+      <onlydisplayif>GetInt(this, "doorkeycount") > 0</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>objects</controltype>
+      <caption>[EditorObjectContainerKey] 2</caption>
+      <attribute>doorkey2</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+      <onlydisplayif>GetInt(this, "doorkeycount") > 1</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>objects</controltype>
+      <caption>[EditorObjectContainerKey] 3</caption>
+      <attribute>doorkey3</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+      <onlydisplayif>GetInt(this, "doorkeycount") > 2</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>objects</controltype>
+      <caption>[EditorObjectContainerKey] 4</caption>
+      <attribute>doorkey4</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+      <onlydisplayif>GetInt(this, "doorkeycount") > 3</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>objects</controltype>
+      <caption>[EditorObjectContainerKey] 5</caption>
+      <attribute>doorkey5</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+      <onlydisplayif>GetInt(this, "doorkeycount") > 4</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>checkbox</controltype>
+      <caption>[EditorObjectContainerLocked]</caption>
+      <attribute>doorlocked</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>checkbox</controltype>
+      <caption>[EditorObjectContainerAutomatically]</caption>
+      <attribute>doorautounlock</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>checkbox</controltype>
+      <caption>[EditorObjectContainerAutomatically2]</caption>
+      <attribute>doorautoopen</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>textbox</controltype>
+      <caption>[EditorObjectContainerIftheplayer]</caption>
+      <attribute>doornokeymessage</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>textbox</controltype>
+      <caption>[EditorObjectContainerUnlockmessage]</caption>
+      <attribute>doorunlockmessage</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>textbox</controltype>
+      <caption>[EditorObjectContainerLockmessage]</caption>
+      <attribute>doorlockmessage</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>checkbox</controltype>
+      <caption>[EditorObjectContainerCanbelocked]</caption>
+      <attribute>doorcanlockopen</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>script</controltype>
+      <caption>[EditorObjectContainerAfterlocking]</caption>
+      <attribute>dooronlock</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>script</controltype>
+      <caption>[EditorObjectContainerAfterunlocking]</caption>
+      <attribute>dooronunlock</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>[EditorObjectContainerLockNote]</caption>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control> 
+	
+  </tab>
+  
+    
+  <!-- AudioVideoLib
+
+    The documentation can be found here:
+	https://github.com/KVonGit/AudioVideoLib/wiki
+
+-->
+
+  <function name="PlaySound" parameters="src, sync, loop, id, controls, addscript, callback">
+    firsttime {
+	  SendToJsEval(play_audio_lib_obj.js)
+	}
+    if ((sync) and loop) {
+      error ("Attempted to loop and sync the same sound!")
+    }
+    src = GetSrc(src)
+    if (id = "") {
+      id = CreateAudioID()
+    }
+	id = Replace(id, " ", "_")
+    JS.makeAudio (src, sync, loop, id, controls)
+    if (addscript) {
+      SetAudioCallback (id, callback)
+    }
+  </function>
+  
+  <function name="CreateAudioID" type="string">
+    if (not HasAttribute(game,"audiofilesplayed")) {
+      game.audiofilesplayed = 0
+    }
+    game.audiofilesplayed = game.audiofilesplayed + 1
+    return ("audio-" + game.audiofilesplayed)
+  </function>
+  
+  <function name="SetAudioCallback" parameters="id, callback">
+    js = "$('#"+id+"').on('ended', function(){ASLEvent('EndAudioSyncAndInvoke',$(this).attr('id'));$(this).remove();});"
+    JS.eval (js)
+    if (not HasAttribute(game, "audiofinishedcallback")) {
+      game.audiofinishedcallback = NewScriptDictionary()
+    }
+    dictionary add (game.audiofinishedcallback, id, callback)
+  </function>
+  
+  <function name="DestroyAudio" parameters="id">
+    JS.eval ("$('#"+id+"').remove();")
+  </function>
+  
+  <function name="DestroyAllAudio">
+    stop sound
+    JS.eval ("$('audio').remove();")
+    EndAudioSync("")
+	game.audiofinishedcallback = NewScriptDictionary()
+  </function>
+  
+   <function name="DestroyAudioAndRunScript" parameters="id">
+    JS.eval ("$('#"+id+"').remove();")
+    EndAudioSyncAndInvoke(id)
+  </function>
+  
+  <function name="DoAudioSync">
+    firsttime {
+      JS.eval ("var sendCommandBak = sendCommand;")
+    }
+    game.audiosyncing = true
+    JS.eval ("sendCommand = function(){$('input#txtCommand').val();};")
+  </function>
+  
+  <function name="EndAudioSync" parameters="bs">
+    game.suppressturnscripts = true
+    game.audiosyncing = false
+    JS.endAudioSync()
+  </function>
+  
+  <function name="EndAudioSyncAndInvoke" parameters="id">
+    game.suppressturnscripts = true
+	game.audiosyncing = false
+    JS.endAudioSync()
+    if (HasAttribute(game, "audiofinishedcallback")) {
+      if (DictionaryContains(game.audiofinishedcallback,id)) {
+        invoke (ScriptDictionaryItem(game.audiofinishedcallback,id))
+		dictionary remove(game.audiofinishedcallback,id)
+		if (DictionaryCount(game.audiofinishedcallback)>0){
+		  DoAudioSync
+		}
+      }
+    }
+  </function>
+  
+  <function name="GetSrc" parameters="src" type="string">
+    src = Split(src,";")
+    online = false
+    pres = Split("http;ftp",";")
+    tags = NewStringList()
+    foreach (url, src) {
+      foreach (pre, pres) {
+        if (StartsWith(url,pre)) {
+          online = true
+        }
+      }
+      arr = Split(url,".")
+      type = arr[ListCount(arr)-1]
+      if (online) {
+        thisurl = url
+      }
+      else {
+        thisurl = (GetFileURL(url))
+      }
+      list add (tags, Chr(60)+"source src=\""+thisurl+"\" type=\"audio/"+type+"\" "+Chr(62))
+    }
+    srctags = Join(tags,"")
+	srctags = Replace(srctags,"/ogv","/ogg")
+    return (srctags)
+  </function>
+  
+
+  
+  
+<!-- EXTRAS  -->
+
+
+<!-- 
+    The following functions are technically unnecessary, but I think they are nice to have.
+-->
+
+  <function name="PlayAudio" parameters="src">
+    PlaySound (src, false, false, "", false, false) {
+    }
+  </function>
+  
+  <function name="PlayAudioID" parameters="src, id">
+    PlaySound (src, false, false, id, false, false) {
+    }
+  </function>
+  
+  <function name="PlayAudioLooped" parameters="src">
+    PlaySound (src, false, true, "", false, false) {
+    }
+  </function>
+  
+  <function name="PlayAudioLoopedID" parameters="src, id">
+    PlaySound (src, false, true, id, false, false) {
+    }
+  </function>
+  
+  <function name="PlayAudioSynced" parameters="src">
+    PlaySound (src, true, false, "", false, false) {
+    }
+  </function>
+  
+  <function name="PlayAudioSyncedID" parameters="src, id">
+    PlaySound (src, true, false, id, false, false) {
+    }
+  </function>
+  
+  <function name="PlayAudioSyncedWithCallback" parameters="src, callback">
+    PlaySound (src, true, false, "", false, true, callback)
+  </function>
+  
+  <function name="PlayAudioSyncedIDWithCallback" parameters="src, id, callback">
+    PlaySound (src, true, false, id, false, true, callback)
+  </function>
+
+  <function name="PlayAudioControls" parameters="src">
+    PlaySound (src, false, false, "", true, false) {
+    }
+  </function>
+  
+  <function name="PlayAudioIDControls" parameters="src, id">
+    PlaySound (src, false, false, id, true, false) {
+    }
+  </function>
+  
+  <function name="PlayAudioLoopedControls" parameters="src">
+    PlaySound (src, false, true, "", true, false) {
+    }
+  </function>
+  
+  <function name="PlayAudioLoopedIDControls" parameters="src, id">
+    PlaySound (src, false, true, id, true, false) {
+    }
+  </function>
+  
+  <function name="PlayAudioSyncedControls" parameters="src">
+    PlaySound (src, true, false, "", true, false) {
+    }
+  </function>
+  
+  <function name="PlayAudioSyncedIDControls" parameters="src, id">
+    PlaySound (src, true, false, id, true, false) {
+    }
+  </function>
+  
+  <function name="PlayAudioSyncedWithCallbackControls" parameters="src, callback">
+    PlaySound (src, true, false, "", true, true, callback)
+  </function>
+  
+  <function name="PlayAudioSyncedIDWithCallbackControls" parameters="src, id, callback">
+    PlaySound (src, true, false, id, true, true, callback)
+  </function>
+  
+  <function name="PauseAudio" parameters="id">
+    JS.pauseAudio(id)
+  </function>
+  
+  <function name="ResumePausedAudio" parameters="id">
+    JS.resumePausedAudio(id)
+  </function>
+  
+  <function name="SetAudioVolume" parameters="id,vol">
+    // vol must be between 0 and 1 
+    JS.setAudioVolume(id,vol)
+  </function>
+  
+  <function name="MuteAudio" parameters="id">
+    JS.muteAudio(id)
+  </function>
+  
+  <function name="UnmuteAudio" parameters="id">
+    JS.unmuteAudio(id)
+  </function>
+  
+  <function name="MuteAllAudio">
+    JS.muteAllAudio()
+  </function>
+  
+  <function name="UnmuteAllAudio">
+    JS.unmuteAllAudio()
+  </function>
+  
+  <function name="PauseAllAudio">
+    JS.pauseAllAudio()
+  </function>
+  
+  <function name="RestartAllPausedAudio">
+    JS.restartAllPausedAudio()
+  </function>
+  
+  <function name="SetAllAudioVolume" parameters="vol">
+    // vol must be between 0 and 1 
+    JS.setAllAudioVolume(vol)
+  </function>
+  
+  <function name="SetAudioPosition" parameters="id,pos">
+    JS.setAudioPosition(id,pos)
+  </function>
+  
+  <function name="IncreaseVolume" parameters="id"><![CDATA[
+    // vol must be between 0 and 1 
+    JS.increaseVolume(id)
+  ]]></function>
+  
+  <function name="DecreaseVolume" parameters="id"><![CDATA[
+    // vol must be between 0 and 1 
+    JS.decreaseVolume(id)
+  ]]></function>
+  
+  <function name="IncreaseAllVolume" parameters="id">
+    JS.increaseAllVolume()
+  </function>
+  
+  <function name="DecreaseAllVolume" parameters="id">
+    JS.decreaseAllVolume()
+  </function>
+  
+<!-- END OF UNNECESSARY FUNCTIONS -->
+
+
+
+<!-- 
+    DEBUGGING FUNCTIONS 
+-->
+  
+<!--
+    AudioLog and TestAudio are not used by any functions.
+    They are only included for debugging purposes.
+-->
+
+  <function name="AudioLog" parameters="text">
+    game.suppressturnscripts = true
+    Log (text)
+  </function>
+  <function name="TestAudio" parameters="src">
+    s = Chr(60)+"audio src='"+GetSrc(src)+"' '"
+    JS.testAudio (s)
+  </function>
+  
+
+<!-- 
+  GUI Stuff 
+-->
+	
+    <editor>
+    <appliesto>(function)PlaySound</appliesto>
+    <display>Add sound: #0</display>
+    <category>[EditorScriptsOutputOutput]</category>
+    <create>PlaySound ("", false, false, "", false, false){}</create>
+    <add>Add sound (NEW)</add>
+	<advanced />
+
+    <control>
+      <controltype>label</controltype>
+      <caption>[EditorScriptsOutputPlaysound]</caption>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>0</attribute>
+      <simple>filename</simple>
+      <simpleeditor>file</simpleeditor>
+      <source>*.wav;*.mp3;*.ogg</source>
+      <filefiltername>Sound Files</filefiltername>
+    </control>
+	
+	<control>
+      <controltype>label</controltype>
+      <caption>ID (Optional):</caption>
+      <breakbefore/>
+    </control>
+
+    <control>
+      <controltype>textbox</controltype>
+      <attribute>3</attribute>
+    </control>
+		
+    <control>
+      <controltype>label</controltype>
+      <caption>[EditorScriptsOutputWaitforsound]</caption>
+      <breakbefore/>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>1</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>[EditorScriptsOutputLoop]</caption>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>2</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+		
+	<control>
+      <controltype>label</controltype>
+      <caption>Show controls</caption>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>4</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+	
+	<control>
+      <controltype>label</controltype>
+      <caption>Add a callback script</caption>
+      <breakbefore/>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>5</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+	
+	<control>
+      <controltype>label</controltype>
+      <caption>
+Script to run after sound has finished  (Optional)
+	  
+(You must set "Add a callback script" to yes for this script to run!)</caption>
+      <breakbefore/>
+    </control>
+
+    <control>
+	  <onlydisplayif>#5</onlydisplayif>
+      <controltype>script</controltype>
+      <attribute>script</attribute>
+
+    </control>
+	</editor>
+
+   <editor>
+    <appliesto>(function)DestroyAllAudio</appliesto>
+    <display>Destroy all audio</display>
+    <category>[EditorScriptsOutputOutput]</category>
+    <create>DestroyAllAudio</create>
+    <add>Destroy all audio (NEW)</add>
+	<advanced />
+	
+	<control>
+      <controltype>label</controltype>
+      <caption>Destroy all audio</caption>
+    </control>
+	</editor>
+	
+  <editor>
+    <appliesto>(function)DestroyAudio</appliesto>
+    <display>Destroy audio #0</display>
+    <category>[EditorScriptsOutputOutput]</category>
+    <create>DestroyAudio("")</create>
+    <add>Destroy audio (NEW)</add>
+	<advanced />
+	
+	<control>
+      <controltype>label</controltype>
+      <caption>Destroy audio with ID:</caption>
+    </control>
+    <control>
+      <controltype>textbox</controltype>
+      <attribute>0</attribute>
+    </control>
+	</editor> 
+
+  
+  
+    <editor>
+    <appliesto>(function)AddVideo</appliesto>
+    <display>Add video: #0</display>
+    <category>[EditorScriptsOutputOutput]</category>
+    <create>AddVideo ("", false, false, "", true, false, false){}</create>
+    <add>Add video (NEW)</add>
+	<advanced />
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Add a video</caption>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>0</attribute>
+      <simple>filename</simple>
+      <simpleeditor>file</simpleeditor>
+      <source>*.mp4;*.ogv</source>
+      <filefiltername>Video Files</filefiltername>
+    </control>
+	
+	<control>
+      <controltype>label</controltype>
+      <caption>ID (Optional):</caption>
+      <breakbefore/>
+    </control>
+
+    <control>
+      <controltype>textbox</controltype>
+      <attribute>3</attribute>
+    </control>
+		
+    <control>
+      <controltype>label</controltype>
+      <caption>Wait for video to finish playing</caption>
+      <breakbefore/>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>1</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>[EditorScriptsOutputLoop]</caption>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>2</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+		
+	<control>
+      <controltype>label</controltype>
+      <caption>Show controls</caption>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>4</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+	
+	<control>
+      <controltype>label</controltype>
+      <caption>Autoplay</caption>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>5</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+	
+	<control>
+      <controltype>label</controltype>
+      <caption>Add a callback script</caption>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>6</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+	
+	<control>
+      <controltype>label</controltype>
+      <caption>
+Script to run after video has finished  (Optional)
+	  
+(You must set "Add a callback script" to yes for this script to run!)</caption>
+      <breakbefore/>
+    </control>
+
+    <control>
+	  <onlydisplayif>#5</onlydisplayif>
+      <controltype>script</controltype>
+      <attribute>script</attribute>
+
+    </control>
+
+  </editor>
+  
+    <editor>
+		<appliesto>(function)DestroyAllVideo</appliesto>
+		<display>Destroy all video</display>
+		<category>[EditorScriptsOutputOutput]</category>
+		<create>DestroyAllVideo</create>
+		<add>Destroy all video (NEW)</add>
+		<advanced />
+		
+		<control>
+		  <controltype>label</controltype>
+		  <caption>Destroy all video</caption>
+		</control>
+	</editor>
+
+    <editor>
+		<appliesto>(function)DestroyVideo</appliesto>
+		<display>Destroy video #0</display>
+		<category>[EditorScriptsOutputOutput]</category>
+		<create>DestroyVideo("")</create>
+		<add>Destroy video (NEW)</add>
+		<advanced />
+		
+		<control>
+		  <controltype>label</controltype>
+		  <caption>Destroy video with ID:</caption>
+		</control>
+		<control>
+		  <controltype>textbox</controltype>
+		  <attribute>0</attribute>
+		</control>
+	</editor> 
+  
+<!-- Javascript stuff -->
+
+<object name="play_audio_lib_obj">
+  <js><![CDATA[
+function isMobilePlayer(){if (typeof(currentTab) === 'string'){return true;}return false;};
+
+function makeAudio(src,sync,loop,id,controls,callback){
+  if (sync && loop){
+    throw new Error('makeAudio():  Attempted to sync and loop the same sound.');
+
+  }
+  var s = String.fromCharCode(60)+'audio ';
+  if(typeof(id)==="string"){ 
+    s += 'id=\''+id+'\'  '; 
+  }
+  if(controls){
+    s += ' controls controlsList=\'nodownload\' '; 
+  }
+  if(loop){ 
+    s += ' loop '; 
+  }
+  s += ' autoplay' + String.fromCharCode(62) +''+src;
+  s += String.fromCharCode(60)+'/audio'+String.fromCharCode(62);
+  var thisTag = s;
+  if(isMobilePlayer()){
+    var repl = String.fromCharCode(60);
+    repl += 'audio controls controlsList=\'nodownload\' class=\'mob-aud\'';
+    thisTag = thisTag.replace(String.fromCharCode(60)+'audio', repl);
+    var tag = String.fromCharCode(60)+'p'+String.fromCharCode(62);
+    tag += thisTag+''+String.fromCharCode(60);
+    tag += '/p'+String.fromCharCode(62);
+    addText(tag);
+    if(typeof($('.mob-aud').last().on('ended'))==='function'){
+      onEndBak = $('.mob-aud').last().on('ended');
+    }else{
+      onEndBak=function(){};
+    }
+    $('.mob-aud').last().insertAfter($('#txtCommandDiv')).on('ended',function(){
+      
+      $(this).remove();
+	  onEndBak();
+    }).css('margin-top','4px');
+  }else if (controls){
+    var addon = String.fromCharCode(60)+'p'+String.fromCharCode(62);
+    addon += thisTag+''+String.fromCharCode(60)+'/p'+String.fromCharCode(62);
+    $("#divOutput").after(addon);
+  }else{
+    $('body').after(thisTag);
+  }
+}
+
+var safeBreak = String.fromCharCode(60)+'br/'+String.fromCharCode(62);
+var noSoundMsg = safeBreak+'There is no sound playing.';
+
+function endAudioSync(){
+  if (typeof(sendCommandBak) === 'function'){sendCommand = sendCommandBak;}
+}
+
+function increaseVolume(id){
+    var thisAud = document.getElementById(id);
+	if(!thisAud){
+	  addTextAndScroll(safeBreak+'There is no sound playing.');
+	}
+	else if(thisAud.volume*10<10){
+	  thisAud.volume = (thisAud.volume*10+1)/10;
+	  addTextAndScroll(safeBreak+'The volume has been increased.');
+	}
+	else{
+	  addTextAndScroll(safeBreak+'The volume is already at the maximum level.');
+	}
+}
+
+function increaseAllVolume(){
+  $('audio').each(function(){
+    if (this.volume!=1){this.volume = this.volume + .1};
+  });
+}
+
+function decreaseVolume (id) {
+  var thisAud = document.getElementById(id);
+  if(!thisAud){
+    addTextAndScroll(safeBreak+'There is no sound playing.');
+  }else if(thisAud.volume*10>0){
+    thisAud.volume = (thisAud.volume*10-1)/10;
+    addTextAndScroll(safeBreak+ 'The volume has been decreased.');
+  }else{
+    addTextAndScroll(safeBreak+'The volume is already all the way down.');
+  }
+}
+
+function decreaseAllVolume(){
+  $('audio').each(function(){
+    if (this.volume>=0.1){this.volume = this.volume - .1};
+  });
+}
+
+function endAudioSync(){
+  if (typeof(sendCommandBak) === 'function'){
+    sendCommand = sendCommandBak;
+  }
+}
+
+function setAllAudioVolume(vol){
+  var audios = document.getElementsByTagName('audio');
+  for(aud in audios){
+    audios[aud].volume = vol;
+  }
+}
+
+function setAudioCurrentTime(id,pos){
+  document.getElementById(id).currentTime = pos;
+}
+
+function pauseAudio(id){
+  var thisAud = document.getElementById(id);
+  thisAud.pause();
+}
+
+function resumePausedAudio(id){
+  var thisAud = document.getElementById(id);
+  thisAud.play();
+}
+
+function restartPausedAudio(id){
+  var thisAud = document.getElementById(id);
+  thisAud.load();
+  thisAud.play()
+}
+
+function setAudioVolume(id,vol){
+  document.getElementById(id).volume = vol;
+}
+
+
+
+function muteAudio(id){
+  var aud = document.getElementById(id);
+  aud.volbak = aud.volume;
+  setAudioVolume(id,0);
+}
+
+
+function unmuteAudio(id){
+  var aud = document.getElementById(id);
+  aud.volume = aud.volbak;
+}
+
+function muteAllAudio(){
+  $('audio').each(function(){
+    $(this).attr('volbak',this.volume);
+  });
+  var audios = document.getElementsByTagName('audio');
+  for(aud in audios){
+    if (typeof(audios[aud].volume)!='undefined'){
+      audios[aud].volume=0;
+    }
+  }
+}
+
+
+function unmuteAllAudio(){
+  $('audio').each(function(){
+    $(this).prop('volume',$(this).attr('volbak'));
+  });
+}
+
+function pauseAllAudio(){
+  var audios = document.getElementsByTagName('audio');
+  for(aud in audios){
+    audios[aud].pause();
+  }
+}
+
+function destroyAllAudio(){
+  $('audio').remove();
+}
+
+
+function restartAllPausedAudio(){
+  var audios = document.getElementsByTagName('audio');
+  for(aud in audios){
+    audios[aud].audios[aud].play();
+  }
+}
+
+function setAllAudioVolume(vol){
+  var audios = document.getElementsByTagName('audio');
+  for(aud in audios){
+    audios[aud].volume = vol;
+  }
+}
+
+function setAudioPosition(id,pos){
+  document.getElementById(id).currentTime = pos;
+}
+
+function testAudio(s){
+    s = s + " onloadstart='ASLEvent(\"AudioLog\",\"Loading \"+$(this).attr(\"src\"));$(this).remove();'";
+    s = s + " onerror='ASLEvent(\"AudioLog\",$(this).attr(\"src\")+\" failed to load.\");$(this).remove();'";
+    s = s + "/"+Chr(62);
+    addText(s);
+}
+  ]]></js>
+</object>
+
+  <function name="AddVideo" parameters="src, sync, loop, id, controls, autoplay, addscript, callback">
+    if ((sync) and loop) {
+      error ("Attempted to loop and sync the same sound!")
+    }
+	src = GetSrc(src)
+	lp = ""
+	if (loop){
+	  lp = " loop "
+	}
+    ctrls = ""
+    if (controls) {
+      ctrls = " controls "
+    }
+    aplay = ""
+    if (autoplay) {
+      aplay = " autoplay "
+    }
+    if (id = "") {
+      id = CreateVideoID()
+    }
+	id = Replace(id, " ", "_")
+    s = Chr(60) + "video " + ctrls + " " + lp + " " + aplay
+    s = s + " style='width:100%;'"
+    s = s + "id='" + id + "'" + Chr(62)
+    s = s + src
+    s = s + Chr(60)+"/video"+Chr(62)
+    msg (s)
+	    if (addscript) {
+      SetVideoCallback (id, callback)
+    }
+  </function>
+
+  <function name="HideVideo" parameters="id">
+    JS.uiHide(id)
+  </function>
+  
+  <function name="DestroyVideo" parameters="id">
+    JS.eval("$('#"+id+"').remove();")
+  </function>
+ 
+  <function name="ShowHiddenVideo" parameters="id">
+    JS.uiShow(id)
+  </function>
+  
+  <function name="PauseVideo" parameters="id">
+    JS.eval("document.getElementById('"+id+"').pause();")
+  </function>
+
+  
+  <function name="ResumePausedVideo" parameters="id">
+    JS.eval("document.getElementById('"+id+"').play();")
+  </function>
+
+  
+  <function name="RestartPausedVideo" parameters="id">
+    JS.eval("document.getElementById('"+id+"').load();")
+  </function>
+
+  
+  <function name="SetVideoCurrentTime" parameters="id,time">
+    JS.eval("document.getElementById('"+id+"').currentTime = "+time+";")
+  </function>
+  
+  <function name="CreateVideoID" type="string">
+    if (not HasAttribute(game,"videofilesplayed")) {
+      game.videofilesplayed = 0
+    }
+    game.videofilesplayed = game.videofilesplayed + 1
+    return ("video-" + game.videofilesplayed)
+  </function>
+  
+  <function name="SetVideoCallback" parameters="id, callback">
+    js = "$('#"+id+"').on('ended',function(){ASLEvent('EndVideoSyncAndInvoke',$(this).attr('id'));/*$(this).remove();*/});"
+    JS.eval (js)
+    if (not HasAttribute(game, "videofinishedcallback")) {
+      game.videofinishedcallback = NewScriptDictionary()
+    }
+    dictionary add (game.videofinishedcallback, id, callback)
+  </function>
+  
+  <function name="EndVideoSync" parameters="bs">
+    game.suppressturnscripts = true
+    game.videosyncing = false
+    JS.endAudioSync()
+  </function>
+  
+  <function name="EndVideoSyncAndInvoke" parameters="id">
+    game.suppressturnscripts = true
+	game.audiosyncing = false
+    JS.endAudioSync()
+    if (HasAttribute(game, "videofinishedcallback")) {
+      if (DictionaryContains(game.videofinishedcallback,id)) {
+        invoke (ScriptDictionaryItem(game.videofinishedcallback,id))
+		dictionary remove(game.videofinishedcallback,id)
+		if (DictionaryCount(game.videofinishedcallback)>0){
+		  DoVideoSync
+		}
+      }
+    }
+  </function>
+  
+  <function name="DoVideoSync">
+    firsttime {
+      JS.eval ("var sendCommandBak = sendCommand;")
+    }
+    game.videosyncing = true
+    JS.eval ("sendCommand = function(){$('input#txtCommand').val();};")
+  </function>
+  
+  <function name="DestroyAllVideo">
+    JS.eval("$('video').remove();")
+  </function>
+    
+  
+<function name="OnlineCheck" type="boolean"><![CDATA[
+  s = " " + 0.1
+  return (Instr(s, ",") > 0)
+]]></function>
+
+<command name="savecmd">
+  <pattern>save</pattern>
+  <script>
+    DoSave
+  </script>
+</command>
+
+<function name="DoSave"><![CDATA[
+  if(OnlineCheck()){
+    JS.saveGame()
+  }
+  else{
+    request (RequestSave, "")
+  }
+]]></function>
+
+    
+</library>

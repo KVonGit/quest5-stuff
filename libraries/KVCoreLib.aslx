@@ -1,0 +1,4320 @@
+<!-- 
+
+     KVCoreLib
+	 Version 1
+	 For Quest 5.7.2 or Quest 5.8 (v550 or v580)
+	 
+	 Includes ClockLib by Pix (modded)
+	 Includes NpcLib by Pix
+	 Includes AudioVideoLib
+
+-->
+
+<library>
+
+  <template templatetype="command" name="log_cmd">^log$|^view log$|^display log$</template>
+  <template templatetype="command" name="transcript_on_cmd">^(transcript|script)( on|)$|^enable (script|transcript)$</template>
+  <template templatetype="command" name="transcript_off_cmd">^(transcript|script) off$|^disable (script|transcript)$</template>
+  <template templatetype="command" name="view_transcript_cmd">^(view|display|show) (the |)(script|transcript)$</template>
+  <template templatetype="command" name="version_cmd">^(version|info|about)$</template>
+  <dynamictemplate name="ObjectNotOpen">CapFirst(object.gender) + " " + Conjugate(object, "be") + " not open."</dynamictemplate>
+  
+  <template name="NothingToUndo">There is nothing to undo.</template>
+
+
+  <function name="InitUserInterface"><![CDATA[
+    //Add RestartGame - KV
+    JS.eval("/* RestartGame added by KV*/ function RestartGame() {  if(!webPlayer){  UIEvent('RestartGame', ''); } else { window.location.reload(); }};")
+	JS.eval("function SaveTranscript(data) {    data = data + \"<style>*{color:black !important;background:white !important;text-align:left !important}</style>\";    if (!webPlayer && transcriptString != '') { UIEvent(\"SaveTranscript\", data); }    transcriptString += data;};function WriteToLog(data) {    if (!webPlayer && data != '' && typeof (data) == 'string') {        UIEvent(\"WriteToLog\", getTimeAndDateForLog() + \" \" + data);    }};")
+    //Fix scrollToEnd - KV
+    JS.eval("function scrollToEnd() {    var scrollTo = _animateScroll ? beginningOfCurrentTurnScrollPosition - 50 - $(\"#gamePanelSpacer\").height() : (document).height();    var currentScrollTop = Math.max($(\"body\").scrollTop(), $(\"html\").scrollTop());    if (scrollTo > currentScrollTop) {        var maxScrollTop = $(document).height() - $(window).height();        if (scrollTo > maxScrollTop) scrollTo = maxScrollTop;        var distance = scrollTo - currentScrollTop;        var duration = _animateScroll ? distance / 0.4 : 1;        /* Added by The Pixie on behalf of alexandretorres*/        if (duration>2000) duration=2000;        $(\"body,html\").stop().animate({ scrollTop: scrollTo }, duration, \"easeInOutCubic\");    }    $(\"#txtCommand\").focus();};")
+    // Added by KV for transcript
+    JS.eval("/* These 2 variables added by KV for the transcript*/var savingTranscript = false;var transcriptString = '';/* This function altered by KV for the transcript*/function addText(text) {    if (getCurrentDiv() == null) {        createNewDiv('left');    }    if (savingTranscript) {        SaveTranscript(text);        ASLEvent('UpdateTranscriptString', text);    }    getCurrentDiv().append(text);};")
+    JS.eval("var mobilePlayer = (typeof (currentTab) === 'string');  function showPopup(title, text) {     $('#msgboxCaption').html(text);      var msgboxOptions = {         modal: true,         autoOpen: false,         title: title,         buttons: [ 			{ 			    text: 'OK', 			    click: function () { $(this).dialog('close'); } 			},         ],         closeOnEscape: false,     };      $('#msgbox').dialog(msgboxOptions);     $('#msgbox').dialog('open'); };  function showPopupCustomSize(title, text, width, height) {     $('#msgboxCaption').html(text);      var msgboxOptions = {         modal: true,         autoOpen: false,         title: title,         width: width,         height: height,         buttons: [ 			{ 			    text: 'OK', 			    click: function () { $(this).dialog('close'); } 			},         ],         closeOnEscape: false,     };      $('#msgbox').dialog(msgboxOptions);     $('#msgbox').dialog('open'); };  function showPopupFullscreen(title, text) {     $('#msgboxCaption').html(text);      var msgboxOptions = {         modal: true,         autoOpen: false,         title: title,         width: $(window).width(),         height: $(window).height(),         buttons: [ 			{ 			    text: 'OK', 			    click: function () { $(this).dialog('close'); } 			},         ],         closeOnEscape: false,     };      $('#msgbox').dialog(msgboxOptions);     $('#msgbox').dialog('open'); };  var msg = addTextAndScroll;     var logVar = ''; function addLogEntry(text){   logVar += getTimeAndDateForLog() + ' ' + text + 'NEW_LINE'; };  function showLog(){   var logDivString = '';   logDivString += \"<div \";   logDivString += \"id='log-dialog' \";   logDivString += \"style='display:none;;'>\";   logDivString += \"<textarea id='logdata' rows='13'\";   logDivString += \"  cols='49'></textarea></div>\";   addText(logDivString);   if(webPlayer){     var logDialog = $('#log-dialog').dialog({       autoOpen: false,       width: 600,       height: 500,       title: 'Log',       buttons: {         Ok: function() {           $(this).dialog('close');         },         Print: function(){           $(this).dialog('close');           showLogDiv();           printLogDiv();         },         Save: function(){           $(this).dialog('close');           saveLog();         },       },       show: { effect: 'fadeIn', duration: 500 },       modal: true,     });   }else{     var logDialog = $('#log-dialog').dialog({     autoOpen: false,     width: 600,     height: 500,     title: 'Log',     buttons: {       Ok: function() {         $(this).dialog('close');       },       Print: function(){         $(this).dialog('close');         showLogDiv();         printLogDiv();       },     },     show: { effect: 'fadeIn', duration: 500 },     modal: true,   });   }   $('textarea#logdata').val(logVar.replace(/NEW_LINE/g,'\n'));   logDialog.dialog('open'); };  var logDivIsSetUp = false;  var logDivToAdd = ''; logDivToAdd += \"<div \"; logDivToAdd += \"id='log-div' \"; logDivToAdd += \"style='display:none;'>\"; logDivToAdd += \"<a class='do-not-print-with-log' \"; logDivToAdd += \"href='' onclick='hideLogDiv()'>RETURN TO THE GAME</a>  \"; logDivToAdd += \"<a class='do-not-print-with-log' href='' \"; logDivToAdd += \"onclick='printLogDiv();'>PRINT</a> \"; logDivToAdd += \"<div id='log-contents-div' '></div></div>\";  function setupLogDiv(){   addText(logDivToAdd);   $('#log-div').insertBefore($('#dialog'));   logDivIsSetUp = true; };  function showLogDiv(){     if(!logDivIsSetUp){      setupLogDiv();     } 	$('.do-not-print-with-log').show(); 	$('#log-contents-div').html(logVar.replace(/NEW_LINE/g,'<br/>')); 	$('#log-div').show(); 	$('#gameBorder').hide(); };  function hideLogDiv(){ 	$('#log-div').hide(); 	$('#gameBorder').show(); };  function printLogDiv(){   if(typeof(document.title) !== 'undefined'){     var docTitleBak = document.title;   }else{     var docTitleBak = 'title';   }   document.title = 'log.txt';   $('.do-not-print-with-log').hide();   print();   $('.do-not-print-with-log').show();   document.title = docTitleBak; };   function saveLog(){   if(webPlayer){     var href = 'data:text/plain,'+logVar.replace(/NEW_LINE/g,'\n');     addTextAndScroll(\"<a download='log.txt' href='\"+href+\"' id='log-save-link'>Click here to save the log if your pop-up blocker stopped the download.</a>\");     document.getElementById('log-save-link').addEventListener ('click', function (e) {e.stopPropagation();});     document.getElementById('log-save-link').click();   }else{     alert('This function is only available while playing online.');   }  };  function getTimeAndDateForLog(){ 	var today = new Date(); 	var dd = today.getDate(); 	var mm = today.getMonth()+1; 	var yyyy = today.getFullYear(); 	var hrs = today.getHours(); 	var mins = today.getMinutes(); 	var secs = today.getSeconds(); 	today = mm + '/' + dd + '/' + yyyy; 	if(hrs>12) { 	  ampm = 'PM'; 	  hrs = '0' + '' + hrs - 12 	}else{ 	  ampm = 'AM'; 	} 	if (mins<10) { 	  mins = '0'+mins; 	} 	if(secs<10) { 	  secs = '0' + secs; 	} 	time = hrs + ':' + mins + ':' + secs + ' ' + ampm; 	return today + ' ' + time; };     function replaceTranscriptString(data) {     transcriptString = data; };  function showTranscript() {     var transcriptDivString = '';     transcriptDivString += \"<div \";     transcriptDivString += \"id='transcript-dialog' \";     transcriptDivString += \"style='display:none;'>\";     transcriptDivString += \"<div id='transcriptdata'></div></div>\";     addText(transcriptDivString);     var transcriptDialog = $('#transcript-dialog').dialog({         autoOpen: false,         width: 600,         height: 500,         title: 'Transcript',         buttons: {             Ok: function () {                 $(this).dialog('close');                 $(this).remove();             },             Print: function () {                 printTranscriptDiv();                 $(this).dialog('close');                 $(this).remove();             },         },         show: { effect: 'fadeIn', duration: 500 },         modal: true,     });     $('#transcriptdata').html(transcriptString);     $('#transcriptdata a').addClass('disabled');     transcriptDialog.dialog('open');     setTimeout(function () {         $('#transcriptdata a').addClass('disabled');     }, 1); };  function printTranscriptDiv() {     var iframe = document.createElement('iframe');     document.body.appendChild(iframe);     iframe.contentWindow.document.write($('#transcriptdata').html());     iframe.contentWindow.print();     document.body.removeChild(iframe);     $('#transcript-dialog').dialog('close');     $('#transcript-dialog').remove(); }; ")
+    // Use JSSafe to remove any offensive characters!  - KV   May 27, 2018
+    jsgamename = JSSafe(game.gamename)
+    JS.eval ("var gameName = '"+jsgamename+"';var transcriptName = gameName;")
+    if (GetBoolean(game,"savetranscript")){
+      JS.eval("var savingTranscript = true;")
+      JS.replaceTranscriptString(game.transcriptstring)
+    }
+    // End of addition by KV for transcript
+    // Setup scrollback - KV
+    JS.eval("/* Modified by KV to handle the scrollback feature*/var saveClearedText = true;var clearedOnce = false;function clearScreen() {    if (!saveClearedText) {        $('#divOutput').children().remove();    } else {        $('#divOutput').append(\"<hr class='clearedAbove' />\");        if (!clearedOnce) {            addText('<style>#divOutput > .clearedScreen { display: none; }</style>');        }        clearedOnce = true;        $('#divOutput').children().addClass('clearedScreen');    }    $('#divOutput').css('min-height', 0);    createNewDiv('left');    beginningOfCurrentTurnScrollPosition = 0;    setTimeout(function () {        $('html,body').scrollTop(0);    }, 100);};")
+    JS.eval("/* Scrollback functions added by KV */function showScrollback() {    var scrollbackDivString = \"<div id='scrollback-dialog' style='display:none;'><div id='scrollbackdata'></div></div>\";    addText(scrollbackDivString);    var scrollbackDialog = $('#scrollback-dialog').dialog({        autoOpen: false,        width: 600,        height: 500,        title: 'Scrollback',        buttons: {            Ok: function () {                $(this).dialog('close');                $(this).remove();            },            Print: function () {                printScrollbackDiv();            },        },        show: { effect: 'fadeIn', duration: 500 },        modal: true,    });    $('#scrollbackdata').html($('#divOutput').html());    $('#scrollbackdata a').addClass('disabled');    scrollbackDialog.dialog('open');    setTimeout(function () {        $('#scrollbackdata a').addClass('disabled');    }, 1);};function printScrollbackDiv() {    var iframe = document.createElement('iframe');    document.body.appendChild(iframe);    iframe.contentWindow.document.write($('#scrollbackdata').html());    iframe.contentWindow.print();    document.body.removeChild(iframe);    $('#scrollback-dialog').dialog('close');    $('#scrollback-dialog').remove();};/* END OF KV ADDITION */")
+    // Modifying updateList to ignore scenery in inventory - KV
+    JS.eval("function updateList(listName, listData) {     var listElement = '';     var buttonPrefix = '';      if (listName == 'inventory') {         listElement = '#lstInventory';         inventoryVerbs = new Array();         buttonPrefix = 'cmdInventory';     }      if (listName == 'placesobjects') {         listElement = '#lstPlacesObjects';         placesObjectsVerbs = new Array();         buttonPrefix = 'cmdPlacesObjects';     }      var previousSelectionText = '';     var previousSelectionKey = '';     var foundPreviousSelection = false;      var $selected = $(listElement + ' .ui-selected');     if ($selected.length > 0) {         previousSelectionText = $selected.first().text();         previousSelectionKey = $selected.first().data('key');     }      $(listElement).empty();     var count = 0;     $.each(listData, function (key, value) {         var data = JSON.parse(value);         /* Modified to ignore scenery in the inventory pane - KV */         var scenery = false;         for (var i in ignoreScenery) {             if (data['ElementName'] == ignoreScenery[i]) {                 scenery = true;             }         }         /* END OF MOD */         var objectDisplayName = data['Text'];         var verbsArray, idPrefix;          if (listName == 'inventory') {             verbsArray = inventoryVerbs;             idPrefix = 'cmdInventory';         } else {             verbsArray = placesObjectsVerbs;             idPrefix = 'cmdPlacesObjects';         }          verbsArray.push(data);          if (listName == 'inventory' || $.inArray(objectDisplayName, _compassDirs) == -1) {             /* KVMod Ignore scenery in the inventory pane */             var vis = '';             if (scenery) { vis = \"style='display:none;'\"; }     var $newItem = $(\"<li \" + vis + \"/>\").data(\"key\", key).data(\"elementid\", data[\"ElementId\"]).data(\"elementname\", data[\"ElementName\"]).data(\"index\", count).html(objectDisplayName);        /* END OF MOD */                   if (objectDisplayName == previousSelectionText && key == previousSelectionKey) {                 $newItem.addClass('ui-selected');                 foundPreviousSelection = true;                 updateVerbButtons($newItem, verbsArray, idPrefix);             }             $(listElement).append($newItem);             count++;         }     });      var selectSize = count;     if (selectSize < 3) selectSize = 3;     if (selectSize > 12) selectSize = 12;     $(listElement).attr('size', selectSize);         if (!foundPreviousSelection) {         for (var i = 1; i <= verbButtonCount; i++) {             var target = $('#' + buttonPrefix + i);             target.hide();         }     } };  function addToScenery(name) {     ignoreScenery.push(name); }; function removeFromScenery(name) {     var index = ignoreScenery.indexOf(name);     if (index > -1) {         ignoreScenery.splice(index, 1);     } };")
+    // Added by KV to set up web and mobile atts
+    JS.eval("ASLEvent('AslSet',\"game.webplayer=\"+webPlayer+\"||game.mobileplayer=\"+ (typeof (currentTab) === 'string') +\"\");")
+    if (GetBoolean (game, "feature_sidenav")){
+      CreateSidenav
+      AddSidenavCmdLink ("Help")
+      AddSidenavCmdLink ("Look")
+      AddSidenavCmdLink ("Wait")
+      AddSidenavCmdLink ("Panes")
+    }
+	if (game.panestheme = "BlackAndWhite") {
+      JS.setPanes("black", "white", "black")
+    }
+	// Apply WAIT fix
+	JS.eval("$(window).on('keydown',function(e){     if(_waitMode){     	endWait();     	e.preventDefault();     	e.stopPropagation();     } });  $('#divOutuput').on('click',function(e){     if(_waitMode){     	endWait();     	e.preventDefault();     	e.stopPropagation();     } });")
+  ]]></function>
+  
+    <function name="StartGame">
+    <![CDATA[
+    StartTurnOutputSection
+    if (game.showtitle) {
+      JS.StartOutputSection ("title")
+      PrintCentered ("<span style=\"font-size:260%\">" + game.gamename + "</span>")
+      if (game.subtitle <> null) {
+        if (LengthOf(game.subtitle) > 0) {
+          PrintCentered ("<span style=\"font-size:130%\">" + game.subtitle + "</span>")
+        }
+      }
+      if (game.author <> null) {
+        if (LengthOf(game.author) > 0) {
+          PrintCentered ("<br/><span style=\"font-size:140%\">[By] " + game.author + "</span>")
+        }
+      }
+      msg ("<div style=\"margin-top:20px\"></div>")
+      JS.EndOutputSection ("title")
+    }
+    if (game.pov = null) {
+      playerObject = GetObject("player")
+      if (playerObject = null) {
+        if (ListCount(AllObjects()) > 0) {
+          firstRoom = ObjectListItem(AllObjects(), 0)
+        }
+        else {
+          create ("room")
+          firstRoom = room
+        }
+        create ("player")
+        player.parent = firstRoom
+      }
+      game.pov = player
+    }
+    else {
+      InitPOV (null, game.pov)
+    }
+    gb_clicks.parent = game
+    InitStatusAttributes
+    UpdateStatusAttributes
+    InitVerbsList
+    SetTime("01:08:00")
+    game.clock = TimeAsString()
+    if (HasScript(game, "start")) do (game, "start")
+    foreach (obj, AllObjects()) {
+      if (HasScript(obj, "_initialise_")) do (obj, "_initialise_")
+    }
+    SetupScenery
+    UpdateContentsInLists
+    UpdateStatusAttributes
+    UpdateObjectLinks
+    on ready {
+      if (game.gridmap) {
+        Grid_DrawPlayerInRoom (game.pov.parent)
+      }
+      if (game.displayroomdescriptiononstart) {
+        OnEnterRoom (null)
+      }
+      UpdateStatusAttributes
+      UpdateObjectLinks
+    }
+    // Added by KV to use the old JS clearScreen if the transcript is disabled
+    if (GetBoolean(game, "notranscript")){
+      JS.eval("transcriptEnabled = false;")
+    }
+    if (HasAttribute (game, "runturnscripts") or GetAttribute(game, "aslversion") = "580" or GetBoolean(game, "multiplecommands")){
+      game.runturnscripts = false
+      FinishTurn
+    }
+    ]]>
+  </function>
+  
+  
+   <function name="FinishTurn">
+      <![CDATA[
+    // Modded by KV to handle multiple commands, v550, and v580 correctly
+    if (not GetBoolean(game, "suppressturnscripts")) {
+      if (HasAttribute (game, "clockincrement")){
+        for (i, 1, game.clockincrement) {
+          IncTime ()
+        }
+      }
+    }
+    if (HasAttribute (game, "clockincrement")){
+      game.clockincrement = 1
+    }
+    if (HasAttribute (game, "runturnscripts") or GetAttribute(game, "aslversion") = "580" or GetBoolean(game, "multiplecommands")){
+      if (not GetBoolean(game, "suppressturnscripts")) {
+        if (GetBoolean (game, "runturnscripts")){
+          RunTurnScripts
+        }
+      }
+	    game.runturnscripts = false
+    }
+	  else if (not GetBoolean(game, "suppressturnscripts")) {
+      if (GetBoolean (game, "feature_turncount")){
+        IncreaseObjectCounter(game, "turncount")
+      }
+      RunTurnScripts
+    }
+    // END OF MOD
+    game.suppressturnscripts = false
+    UpdateStatusAttributes
+    CheckDarkness
+    UpdateObjectLinks
+  ]]></function>
+  
+  <function name="SetWalkthrough" parameters="boolstring">
+    bool = false
+    game.runturnscripts = false
+    if (LCase(boolstring) = "true") {
+      bool = true
+      game.runturnscripts = true
+    }
+    game.runningwalkthrough = bool
+  </function>
+  
+  <command name="take" template="take">
+    <multipleobjects type="script">
+      game.pov.currentcommandpendingobjectscope = NewObjectList()
+      list = ListExclude(ScopeVisibleNotHeldNotScenery(), game.pov)
+      list = ListExclude (list, FilterByAttribute (list, "not_all", true))
+      foreach (obj, list) {
+        if (obj.parent = game.pov.parent and not DoesInherit(obj, "npc_type")) {
+          list add(game.pov.currentcommandpendingobjectscope, obj)
+        }
+      }
+    </multipleobjects>
+    <multiple>
+      takeList = NewObjectList()
+      foreach (obj, ListExclude(ScopeVisibleNotHeldNotScenery(), game.pov)) {
+        if (obj.parent = game.pov.parent) {
+          list add (takeList, obj)
+        }
+        if (obj.parent.parent = game.pov.parent and DoesInherit(obj.parent.parent,"surface") and not DoesInherit(obj.parent, "npc_type")){
+          list add (takeList, obj)
+        }
+      }
+      return (takeList)
+    </multiple>
+    <scope>notheld</scope>
+    <script>
+      if (not IsDefined("multiple")) multiple = false
+      if (multiple and ListCount(object) = 0) {
+        msg("[NothingToTake]")
+      }
+      else{
+        foreach (obj, object) {
+          DoTake(obj, multiple)
+        }
+      }
+    </script>
+  </command>
+  
+  
+  <command name="drop" template="drop">
+    <multipleobjects type="script">
+      list = GetDirectChildren(game.pov)
+      list = ListExclude(list, FilterByAttribute(list, "scenery", true))
+      list = ListExclude(list, FilterByAttribute(list, "visible", false))
+      game.pov.currentcommandpendingobjectscope = list
+    </multipleobjects>
+    <multiple>
+      list = GetDirectChildren(game.pov)
+      list = ListExclude(list, FilterByAttribute(list, "scenery", true))
+      list = ListExclude(list, FilterByAttribute(list, "visible", false))
+      return (list)
+    </multiple>
+    <scope>inventory</scope>
+    <script>
+      if (not IsDefined("multiple")) multiple = false
+      if (multiple and ListCount(object) = 0) {
+        msg("[NotCarryingAnything]")
+      }
+      else{
+        foreach (obj, object) {
+          DoDrop(obj, multiple)
+        }
+      }
+    </script>
+  </command>
+  
+    <command name="undo">
+    <pattern type="string">[undo]</pattern>
+    <script>
+      undo
+      if (GetBoolean (game, "gridmap")){
+        Grid_DrawPlayerInRoom (game.pov.parent)
+      }
+	  game.suppressturnscripts = true
+    </script>
+    <isundo/>
+  </command>
+  
+    <command name="pretty_inventory_cmd">
+    <pattern type="string">^i$|^inv$|^inventory$</pattern>
+    <script>
+      list = FormatObjectList(Template("CarryingListHeader"), game.pov, Template("And"), ".")
+      if (list = "") {
+        msg (Template("NotCarryingAnything"))
+      }
+      else {
+        PrettyInventory
+      }
+    </script>
+  </command>
+  
+    <function name="PrettyInventory">
+    <![CDATA[
+    stuff = ScopeInventory()
+    stuff = FilterByNotAttribute (stuff, "scenery", true)
+    stuff = FilterByNotAttribute (stuff, "visible", false)
+    list = ""
+    int = 0
+    foreach (o, stuff) {
+      int = int + 1
+      o.prettyalias = "&nbsp;&nbsp;" + GetDisplayNameLink(o, "object")
+      foreach (c, ListExclude(ListParents(o), game.pov)) {
+        if (ListContains (stuff, c)) {
+          o.prettyalias = "&nbsp;&nbsp;" + o.prettyalias
+        }
+      }
+      br = ""
+      if (int > 1) {
+        br = "<br/>"
+      }
+      list = list + br + o.prettyalias
+    }
+    msg ("You are carrying:")
+    msg (list)
+    ]]>
+  </function>
+  
+  
+  <command name="quit" pattern="[quit]">
+    Ask ("Are you sure you'd like to quit?"){
+      if (result) {
+        finish
+      }
+      else {
+        msg("Aborted.")
+        game.suppressturnscripts = true
+      }
+    }
+  </command>
+  
+  <command name="putmod">
+    <pattern type="string"><![CDATA[^put (?<object1>.*) (on|in) (?<object2>.*)$]]></pattern>
+    <multipleobjects type="script">
+      game.pov.currentcommandpendingobjectscope = NewObjectList()
+      list = ListExclude(ScopeVisibleNotHeldNotScenery(), game.pov)
+      list = ListExclude (list, FilterByAttribute (list, "not_all", true))
+      foreach (obj, list) {
+        if (obj.parent = game.pov.parent) {
+          list add(game.pov.currentcommandpendingobjectscope, obj)
+        }
+      }
+    </multipleobjects>
+    <multiple>
+      takeList = NewObjectList()
+      foreach (obj, ListExclude(ScopeVisibleNotHeldNotScenery(), game.pov)) {
+        if (obj.parent = game.pov.parent) {
+          list add(takeList, obj)
+        }
+      }
+      return (takeList)
+    </multiple>
+    <scope>object1=inventory|object2=container</scope>
+    <script>
+      <![CDATA[
+      if (not IsDefined("multiple")) {
+        multiple = false
+      }
+      if (multiple and ListCount(object1) = 0) {
+        msg ("You're not carrying anything.")
+      }
+      else if (multiple and ListCount(object2) > 1) {
+        msg ("You'll have to pick one target.")
+      }
+      else {
+        object2 = ListItem(object2, 0)
+        if (not LCase(ToString(DictionaryItem(game.pov.currentcommandvarlist,"object1"))) = "all" and ListContains(object1,object2)) {
+          if (ListCount(object1)>1) {
+            OutputTextNoBr (GetDisplayAlias(object2) + ": ")
+          }
+          msg (Template("CannotDoThat"))
+        }
+        foreach (obj, ListExclude(object1, object2)) {
+          if (obj.parent = game.pov){
+            if (multiple) {
+              OutputTextNoBr (GetDisplayAlias(obj) + ": ")
+            }
+            // put object1 in/on object 2
+            canbedropped = true
+            if (HasBoolean(obj, "drop")) {
+              if (not obj.drop) {
+                canbedropped = false
+              }
+            }
+            if (obj.parent = object2) {
+              msg (DynamicTemplate("AlreadyThere", obj))
+            }
+            else if (obj = object2) {
+              msg ("You can't do that.")
+            }
+            else if (not ListContains(ScopeInventory(), obj)) {
+              msg (DynamicTemplate("NotCarrying", obj))
+            }
+            else if (not canbedropped) {
+              msg (DynamicTemplate("ObjectCannotBeStored", obj))
+            }
+            else if (not ListContains(ScopeReachable(), obj)) {
+              msg (DynamicTemplate("ObjectNotOpen", GetBlockingObject(obj)))
+            }
+            else if (not ListContains(ScopeReachable(), object2)) {
+              msg (DynamicTemplate("ObjectNotOpen", GetBlockingObject(object2)))
+            }
+            else if (not object2.container) {
+              msg (Template("CannotDoThat"))
+            }
+            else if (not object2.isopen) {
+              msg (DynamicTemplate("ObjectNotOpen", object2))
+            }
+            else {
+              if (GetBoolean(object2, "hidechildren")) {
+                object2.hidechildren = false
+              }
+              params = NewDictionary()
+              dictionary add (params, "object", obj)
+              dictionary add (params, "destination", object2)
+              if (HasScript(object2, "addscript")) {
+                do (object2, "addscript", params)
+              }
+              else if (HasScript(obj, "drop")) {
+                do (obj, "drop", params)
+              }
+              else {
+                obj.parent = object2
+                msg (Template("Done"))
+              }
+            }
+          }
+          // must be carrying object1
+          // item cannot be dropped
+          // object1 must not be inside a closed container
+          // object2 must not be inside a closed container
+          // object2 must be an open container or surface
+        }
+      }
+    ]]>
+    </script>
+  </command>
+  
+  <!-- PxMod -->
+  <function name="DefaultGiveFunc" parameters="object1, object2" type="string">
+    if (DoesInherit(object1, "npc_type")) {
+      return (WriteVerb(object1, "do") + " not want " + object2.article + ".")
+    }
+    else {
+      return ("That doesn't work.")
+    }
+  </function>
+
+  <function name="HandleGiveTo" parameters="object1, object2">
+    handled = false
+    if (HasString(object2, "give")) {
+      msg (object2.give)
+      handled = true
+    }
+    else if (TypeOf(object2, "give") = "scriptdictionary") {
+      if (DictionaryContains(object2.give, object1.name)) {
+        parameters = NewObjectDictionary()
+        dictionary add (parameters, "this", object2)
+        dictionary add (parameters, "object", object1)
+        invoke (ScriptDictionaryItem(object2.give, object1.name), parameters)
+        handled = true
+      }
+      if (not handled) {
+        if (HasScript(object2, "giveanything")) {
+          // TO DO: Would be better to use a delegate for giveanything, but need to implement Editor support first
+          parameters = NewObjectDictionary()
+          dictionary add (parameters, "object", object1)
+          do (object2, "giveanything", parameters)
+          handled = true
+        }
+      }
+    }
+    
+    if (not handled) {
+      if (HasString(object1, "giveto")) {
+        msg (object1.giveto)
+        handled = true
+      }
+      else if (TypeOf(object1, "giveto") = "scriptdictionary") {
+        if (DictionaryContains(object1.giveto, object2.name)) {
+          parameters = NewObjectDictionary()
+          dictionary add (parameters, "this", object1)
+          dictionary add (parameters, "object", object2)
+          invoke (ScriptDictionaryItem(object1.giveto, object2.name), parameters)
+          handled = true
+        }
+        else {
+          if (HasScript(object1, "givetoanything")) {
+            // TO DO: Would be better to use a delegate for givetoanything, but need to implement Editor support first
+            parameters = NewObjectDictionary()
+            dictionary add (parameters, "object", object2)
+            do (object1, "givetoanything", parameters)
+            handled = true
+          }
+        }
+      }
+    }
+    
+    if (not handled) {
+      msg (DynamicTemplate("DefaultGive", object2, object1))
+    }
+  </function>
+  
+  <dynamictemplate name="DefaultGive">DefaultGiveFunc(object1, object2)</dynamictemplate>
+  
+    <command name="oops" pattern="[oops]">
+    <isoops/>
+    <script><![CDATA[
+      game.suppressturnscripts = true
+      hasoops = false
+      if (HasAttribute(game, "unresolvedcommand")) {
+        if (game.unresolvedcommand <> null) {
+          hasoops = true
+        }
+      }
+      if (not hasoops) {
+        msg (Template("DefaultOops"))
+      }
+      else {
+        dictionary remove (game.unresolvedcommandvarlist, game.unresolvedcommandkey)
+        dictionary add (game.unresolvedcommandvarlist, game.unresolvedcommandkey, text)
+        HandleSingleCommandPattern ("", game.unresolvedcommand, game.unresolvedcommandvarlist)
+      }
+    ]]></script>
+  </command>
+
+  <command name="noting">
+    <pattern type="string">^\p{P}</pattern>
+    <script>
+      game.suppressturnscripts = true
+      msg ("Noted.")
+    </script>
+  </command>
+
+  <verb name="enter_verb">
+    <pattern>enter #object#;get in #object#;get into #object#</pattern>
+    <property>enter</property>
+    <defaultexpression>"You can't enter "+object.article+"."</defaultexpression>
+    <scope>notheld</scope>
+  </verb>
+  
+    <!-- WAIT for ClockLib -->
+  <command name="wait">
+    <pattern type="string">^wait$|^z$</pattern>
+    <script>
+      count = game.clockwaittime -1
+      game.clockevent = false
+      while (count > 0 and not game.clockevent) {
+        //msg("count = " + count)
+        //msg("game.clockevent = " + game.clockevent)
+        count = count - 1
+        IncTime()
+      }
+      if (not game.clockevent) {
+        P (Replace (game.clockwaitmsg, "###", "" + game.clockwaittime))
+      }
+    </script>
+  </command>
+  <command name="clock">
+    <pattern>clock;time</pattern>
+    <script>
+      if (GetBoolean (game, "feature_ingameclock")){
+        P (Replace(game.clockmsg, "###", TimeAsString()))
+      }
+      else {
+        msg ("There is no time feature in this story.")
+      }
+	    game.suppressturnscripts = true
+    </script>
+  </command>
+  <!-- Modified to suppress turn scripts -->
+  <command name="help" pattern="[help]">
+    <script>
+      msg (Template("DefaultHelp"))
+      game.suppressturnscripts = true
+    </script>
+  </command>
+
+  <!-- Modified by KV to resolve issue with empty divOutput when saving online with this command. -->
+  <command name="save">
+    <pattern type="string">^save$</pattern>
+    <script>
+      if (HasAttribute(game, "questplatform")) {
+        if (game.questplatform = "desktop") {
+          request (RequestSave, "")
+        }
+        else {
+          JS.saveGame ()
+        }
+      }
+      else {
+        request (RequestSave, "")
+      }
+      game.suppressturnscripts = true
+    </script>
+  </command>
+
+  <!-- added by KV -->
+
+  <command name="version_cmd" pattern="[version_cmd]">
+    <script>
+      <![CDATA[
+      s = "<b>TITLE: </b>" + game.gamename + "<br/>"
+      if (HasAttribute (game, "author")) {
+        s = s + "<b>AUTHOR: </b>" + game.author + "<br/>"
+      }
+      s = s + "<b>VERSION: </b>" + game.version + "<br/>"
+      s = s + "<b>IFID: </b>" + game.gameid + "<br/>"
+      s = s + "<br/>"
+      msg (s)
+      game.suppressturnscripts = true
+    ]]>
+    </script>
+  </command>
+
+  <command name="log_cmd" pattern="[log_cmd]">
+    <script>
+      if (not GetBoolean(game, "nohtmllog")){
+        JS.showLog ()
+      }
+      else {
+        msg ("This game has no in-game log.")
+      }
+      game.suppressturnscripts = true
+    </script>
+  </command>
+
+  <command name="view_transcript_cmd" pattern="[view_transcript_cmd]">
+    <script>
+      if (not GetBoolean(game, "notranscript")){
+        JS.showTranscript ()
+      }
+      else {
+        msg ("This game has no transcript feature.")
+      }
+      game.suppressturnscripts = true
+    </script>
+  </command>
+
+  <command name="transcript_on_cmd">
+    <pattern type="string">^(transcript|script)( on|)$|^enable (script|transcript)$</pattern>
+    <script>
+      <![CDATA[
+      game.notarealturn = true
+      if (not GetBoolean(game, "notranscript")) {
+        if (not GetBoolean(game,"savetranscript")) {
+          msg ("Please enter a filename.  (<b>  \"-transcript.html\" will be appended to this filename.)<br/>  <i>(The file will be saved in \"Documents\\Quest Transcripts\".)</i></b>")
+          JS.eval ("$('input#txtCommand').val(transcriptName);")
+          get input {
+            filename = Trim(result)
+            if (not filename = "") {
+              JS.eval ("transcriptName = '"+filename+"';")
+            }
+            JS.eval ("savingTranscript = true;")
+            game.savetranscript = true
+            pre = "<hr/>Transcript enabled for:<br/>"
+            s = "<b>TITLE: </b>" + game.gamename + "<br/>"
+            if (HasAttribute (game, "author")) {
+              s = s + "<b>AUTHOR: </b>" + game.author + "<br/>"
+            }
+            s = s + "<b>VERSION: </b>" + game.version + "<br/>"
+            s = s + "<b>IFID: </b>" + game.gameid + "<br/>"
+            s = s + "<br/>"
+            s = pre + s
+            msg("")
+            msg (s)
+            msg ("<br/><b><i>[  Enter </i>SCRIPT OFF<i> to disable the transcript.  ]</i></b>")
+          }
+        }
+        else {
+          msg ("The transcript is already enabled.")
+        }
+      }
+      else {
+        msg ("This game has no transcript feature.")
+      }
+      game.suppressturnscripts = true
+    ]]>
+    </script>
+  </command>
+
+  <command name="transcript_off_cmd" pattern="[transcript_off_cmd]">
+    <script>
+      game.notarealturn = true
+      if (not GetBoolean(game, "notranscript")){
+        if (GetBoolean(game,"savetranscript")){
+          game.savetranscript = false
+          JS.eval("var saveTranscript = false;")
+          msg("Transcript disabled.")
+        }
+        else{
+          msg("The transcript is already disabled.")
+        }
+      }
+      else {
+        msg ("This game has no transcript feature.")
+      }
+      game.suppressturnscripts = true
+    </script>
+  </command>
+
+  <function name="UpdateTranscriptString" parameters="data">
+    if (not HasAttribute (game, "runturnscripts") and not GetAttribute(game, "aslversion") = "580"){
+      game.suppressturnscripts = true
+    }
+    game.transcriptstring = game.transcriptstring + data
+  </function>
+  <command name="restart" pattern="^restart$">
+    <script>
+      Ask ("Are you sure you want to restart the game?"){
+        if (result){
+          JS.eval("if(webPlayer){window.location.reload();}else if (typeof(RestartGame) != 'undefined'){RestartGame();}else{addTextAndScroll('Try pressing CTRL+R.')};")
+        }
+        else {
+          game.suppressturnscripts = true
+        }
+      }
+    </script>
+  </command>
+  <command name="brief_cmd">
+    <pattern>brief;terse</pattern>
+    <script>
+      <![CDATA[
+      if (not GetBoolean(game, "brief_descriptions")) {
+        game.suppressturnscripts = true
+        game.brief_descriptions = true
+        game.autodescription_description = game.autodescription_descriptionBak
+      }
+      msg ("Room Descriptions are now set to \"BRIEF\".  Room descriptions will only print if you haven't visited a room yet.<br/>")
+    ]]>
+    </script>
+  </command>
+
+  <command name="superbrief_cmd">
+    <pattern>superbrief;short</pattern>
+    <script>
+      <![CDATA[
+      game.suppressturnscripts = true
+      game.autodescription_description = 0
+      msg ("Room Descriptions are now set to \"SUPERBRIEF\".  Room descriptions will not print (even if you haven't visited the room before).<br/>")
+    ]]>
+    </script>
+  </command>
+
+  <command name="verbose_cmd">
+    <pattern>verbose;long</pattern>
+    <script>
+      <![CDATA[
+      game.suppressturnscripts = true
+      game.autodescription_description = game.autodescription_descriptionBak
+      game.brief_descriptions = false
+      msg ("Room Descriptions are now set to \"VERBOSE\".  Room descriptions will always print.<br/>")
+    ]]>
+    </script>
+  </command>
+
+  <command name="ask_room_about_cmd">
+    <pattern>ask about #text#</pattern>
+    <script>
+      npcs = NewObjectList()
+      opts = NewStringDictionary()
+      foreach (o, GetDirectChildren(player.parent)) {
+        if (HasAttribute(o, "ask")) {
+          list add (npcs, o)
+          dictionary add (opts, o.name, GetDisplayAlias(o))
+        }
+      }
+      if (ListCount(npcs) = 0) {
+        msg ("You can ask, but no one is here to tell you anything.")
+      }
+      else if (ListCount(npcs) = 1) {
+        DoAskTell (ObjectListItem(npcs, 0), text, "ask", "askdefault", "DefaultAsk")
+      }
+      else {
+        game.askabouttext = text
+        ShowMenu ("Ask who?", opts, true) {
+          if (not result = null) {
+            o = GetObject(result)
+            DoAskTell (o, game.askabouttext, "ask", "askdefault", "DefaultAsk")
+          }
+        }
+      }
+    </script>
+  </command>
+  
+  
+  <!-- ScoreLib Remix -->
+
+  <command name="score">
+    <pattern>score</pattern>
+    <script>
+      game.suppressturnscripts = true
+      if (not GetBoolean(game, "show_fancy_score") and not GetBoolean (game, "showscore")){
+        msg ("There is no scoring in this story.")
+      }
+      else {
+        PrintFullScore
+      }
+    </script>
+  </command>
+  <function name="InitScore" parameters="max, ranks, status">
+    game.score_rank_list = Split(ranks, ",")
+    game.score_max = max
+    game.score_achievements = NewStringDictionary()
+    game.score = 0
+    if (not status) {
+    game.pov.statusattributes = NewStringDictionary()
+    }
+    if (not DictionaryContains(game.pov..statusattributes, "score")){
+    dictionary add (game.pov..statusattributes, "score", "Score: !/" + max)
+    }
+  </function>
+  <function name="IncScore" parameters="str, inc">
+    if (not DictionaryContains(game.score_achievements, str)) {
+    game.score = game.score + inc
+    dictionary add (game.score_achievements, str, ToString(inc))
+    }
+  </function>
+  <function name="GetScore" type="int">
+    return (game.score)
+  </function>
+  <function name="PrintScore">
+    msg ("You have scored " + game.score + GetRank())
+    GetRank
+  </function>
+  <function name="PrintFullScore">
+    PrintScore()
+    if (HasAttribute(game, "score_achievements")){
+      foreach (ach, game.score_achievements) {
+        msg ("- " + ach + " (" + DictionaryItem(game.score_achievements, ach) + ")")
+      }
+    }
+  </function>
+  <function name="GetRank" type="string">
+    <![CDATA[
+    rank = ""
+	  if (HasAttribute(game, "score_max")){
+	    if (game.score >= game.score_max) {
+        rank = " giving you the rank: " + StringListItem(game.score_rank_list, ListCount(game.score_rank_list) - 1)
+	    }
+    }
+    else if (0 >= game.score) {
+	    if (HasAttribute(game, "score_rank_list")){
+        rank = " giving you the rank: " + StringListItem(game.score_rank_list, 0)
+	    }
+    }
+    else {
+	    if (HasAttribute(game, "score_rank_list") and HasAttribute(game,"score_max")){
+        n = (ListCount(game.score_rank_list) - 2) * (game.score - 1) / (game.score_max - 1) + 1
+        rank = " giving you the rank: " + StringListItem(game.score_rank_list, n)
+	    }
+    }
+	rank = rank + "."
+	return (rank)
+  ]]>
+  </function>
+  
+  <command name="lookatroom">
+    <pattern>look at #object#; look #object#; x #object#; examine #object#; exam #object#; ex #object#</pattern>
+    <changecommandscope type="script">
+      list add (items, game.pov.parent)
+    </changecommandscope>
+    <script>
+      if (object = game.pov.parent) {
+        ShowRoomDescription
+      }
+      else {
+        params = NewDictionary()
+        dictionary add (params, "object", object)
+        do (lookat, "script", params)
+      }
+    </script>
+  </command>
+  <command name="say">
+    <pattern>say "#text#";say #text#</pattern>
+    <script>
+      msg ("You say, \""+text+"\".")
+    </script>
+  </command>
+
+  <command name="panes">
+    <pattern>panes</pattern>
+    <script>
+      if (not GetBoolean (game, "panesdisabled")){
+        if (GetBoolean(game, "showpanes")) {
+          game.showpanes = false
+        }
+        else {
+          game.showpanes = true
+        }
+        game.suppressturnscripts = true
+        hidemsg = "Panes disabled."
+        showmsg = "Panes enabled."
+        JS.eval ("if (isElementVisible('#gamePanes')){ uiHide('#gamePanes'); addTextAndScroll('"+ hidemsg + "') }else{uiShow('#gamePanes'); addTextAndScroll('"+ showmsg + "');}")
+      }
+      else {
+        msg ("The panes are not enabled in this story.")
+      }
+    </script>
+  </command>
+  <function name="ObjectListCompact" parameters="lst" type="objectlist">
+    l = NewObjectList()
+    foreach (o, lst) {
+      if (not Equal(o, null)) {
+        if (IndexOf(l, o) = -1) {
+          list add (l, o)
+        }
+      }
+    }
+    return (l)
+  </function>
+  
+  
+  <!-- Added by KV -->
+
+  <function name="AllRooms" type="objectlist">
+    return (FilterByAttribute(AllObjects(),"isroom",true))
+  </function>
+
+  <function name="DictionaryAdd" parameters="dict, key, val">
+    if (dict = null or TypeOf(dict)="object") {
+      error ("DictionaryAdd:  Dictionary does not exist!")
+    }
+    if (DictionaryContains(dict, key)) {
+      dictionary remove (dict, key)
+    }
+    dictionary add (dict, key, val)
+  </function>
+
+  <function name="DictionaryRemove" parameters="dict, key">
+    if (dict = null or TypeOf(dict)="object") {
+      error ("DictionaryAdd:  Dictionary does not exist!")
+    }
+    if (DictionaryContains(dict, key)) {
+      dictionary remove (dict, key)
+    }
+  </function>
+  <function name="ListAdd" parameters="list, value">
+    if (not EndsWith(TypeOf(list),"list")) {
+      error ("ListAdd: "+list+" is not a list!")
+    }
+    if (not ListContains(list,value)) {
+      list add (list, value)
+    }
+  </function>
+
+  <function name="ListRemove" parameters="list, value">
+    if (ListContains(list,value)) {
+      list remove (list, value)
+    }
+  </function>
+
+  <function name="CloneAllVerbsLists">
+    foreach (o, AllObjects()) {
+      if (HasAttribute(o,"displayverbs")) {
+        o.displayverbs = ListExclude(o.displayverbs,"")
+      }
+    }
+    foreach (o, AllObjects()) {
+      if (HasAttribute(o,"inventoryverbs")) {
+        o.inventoryverbs = ListExclude(o.inventoryverbs,"")
+      }
+    }
+  </function>
+
+  <function name="DbgLog" parameters="txt">
+    if(GetBoolean(game,"debugging")){
+      Log("DEBUGGING:  "+txt)
+    }
+  </function>
+
+  <function name="DbgMsg" parameters="txt">
+    <![CDATA[
+    if(GetBoolean(game,"debugging")){
+      msg("<br/><p style='color:blue;font-weight:bold;'>DEBUGGING:  "+txt+"</p><br/>")
+    }
+  ]]>
+  </function>
+
+  <function name="DisableTranscript">
+    game.notranscript = true
+    JS.eval("enableTranscript = false;")
+  </function>
+  <function name="DisableHtmlLog">
+    game.nohtmllog = true
+  </function>
+
+  <function name="FinishGame">
+    <![CDATA[
+    message = "<h3>GAME OVER</h3>"
+    ShowGameOverMenu
+  ]]>
+  </function>
+
+  <function name="ShowGameOverMenu">
+    <![CDATA[
+    ShowMenu ("<br/>What would you like to do?", Split("UNDO your last command;RESTART from the beginning;QUIT the game", ";"), false) {
+      switch (result) {
+        case ("UNDO your last command") {
+          invoke (undo.script)
+        }
+        case ("RESTART from the beginning") {
+          JS.RestartGame ()
+        }
+        case ("QUIT the game") {
+          JS.uiShow("#gamePanes")
+          finish
+        }
+        default {
+          ShowGameOverMenu
+        }
+      }
+    }
+  ]]>
+  </function>
+
+  <function name="UpdateContentsInLists">
+    <![CDATA[
+    JS.eval ("if (typeof(ignoreScenery) == 'undefined'){var ignoreScenery = [];}")
+    foreach (o, AllObjects()) {
+      o.listalias = GetDisplayAlias(o)
+      containers = ListExclude(ListParents(o), game.pov)
+      containers = ListExclude(containers, ListParents(game.pov))
+      foreach (c, containers) {
+        o.listalias = "&nbsp;&nbsp;" + o.listalias
+      }
+    }
+  ]]>
+  </function>
+
+
+  <function name="SetupScenery">
+    JS.eval ("if (typeof(ignoreScenery) == 'undefined'){var ignoreScenery = [];}")
+    foreach (o, AllObjects()) {
+      if (GetBoolean(o,"scenery")) {
+        JS.addToScenery (o.name)
+      }
+      o.changedscenery => {
+        if (this.scenery) {
+          JS.addToScenery (this.name)
+        }
+        else {
+          JS.removeFromScenery (this.name)
+        }
+      }
+    }
+  </function>
+
+
+  
+  <function name="CreateInterval" parameters="name, function, duration">
+    JS.eval ("var "+name+" = setInterval(function(){ ASLEvent('"+function+"', '');}, "+duration+");")
+  </function>
+  <function name="ClearInterval" params="name">
+    JS.eval ("clearInterval("+name+");")
+  </function>
+  <function name="FadeOutElement" parameters="element">
+    JS.eval ("$(\""+element+"\").fadeOut();")
+  </function>
+
+  <function name="FadeOutElementWithDelay" parameters="element, interval">
+    interval = interval * 1000
+    JS.eval ("$(\""+element+"\").fadeOut(parseInt("+interval+"));")
+  </function>
+
+  <function name="FadeInText" parameters="text">
+    <![CDATA[
+    if (not HasAttribute(game, "texts_faded_in_count")) {
+      game.texts_faded_in_count = 0
+    }
+    game.texts_faded_in_count = game.texts_faded_in_count + 1
+    msg ("<span id=\"fade-in-div"+game.texts_faded_in_count+"\" style=\"display:none\">"+text+"</span>")
+    JS.eval ("$(\"#fade-in-div"+game.texts_faded_in_count+"\").fadeIn();")
+  ]]>
+  </function>
+
+  <function name="FadeInTextWithDelay" parameters="text, interval">
+    <![CDATA[
+    interval = interval * 1000
+    if (not HasAttribute(game, "texts_faded_in_count")) {
+      game.texts_faded_in_count = 0
+    }
+    game.texts_faded_in_count = game.texts_faded_in_count + 1
+    msg ("<span id=\"fade-in-div"+game.texts_faded_in_count+"\" style=\"display:none\">"+text+"</span>")
+    JS.eval ("$(\"#fade-in-div"+game.texts_faded_in_count+"\").fadeIn(parseInt("+interval+"));")
+  ]]>
+  </function>
+
+  <function name="FadeInTextWithID" parameters="text, id">
+    <![CDATA[
+    if (not HasAttribute(game, "texts_faded_in_count")) {
+      game.texts_faded_in_count = 0
+    }
+    game.texts_faded_in_count = game.texts_faded_in_count + 1
+    msg ("<span id=\""+id+"\" style=\"display:none\">"+text+"</span>")
+    JS.eval ("$(\"#"+id+"\").fadeIn();")
+  ]]>
+  </function>
+
+  <function name="FadeInTextWithDelayAndID" parameters="text, interval, id">
+    <![CDATA[
+    interval = interval * 1000
+    if (not HasAttribute(game, "texts_faded_in_count")) {
+      game.texts_faded_in_count = 0
+    }
+    game.texts_faded_in_count = game.texts_faded_in_count + 1
+    msg ("<span id=\""+id+"\" style=\"display:none\">"+text+"</span>")
+    JS.eval ("$(\"#"+id+"\").fadeIn(parseInt("+interval+"));")
+  ]]>
+  </function>
+
+  <function name="FadeInTextWithClass" parameters="text, class">
+    <![CDATA[
+    if (not HasAttribute(game, "texts_faded_in_count")) {
+      game.texts_faded_in_count = 0
+    }
+    game.texts_faded_in_count = game.texts_faded_in_count + 1
+    msg ("<span class=\""+class+"\" style=\"display:none\">"+text+"</span>")
+    JS.eval ("$(\"."+class+"\").fadeIn();")
+  ]]>
+  </function>
+
+  <function name="FadeInTextWithDelayAndClass" parameters="text, interval, class">
+    <![CDATA[
+    interval = interval * 1000
+    if (not HasAttribute(game, "texts_faded_in_count")) {
+      game.texts_faded_in_count = 0
+    }
+    game.texts_faded_in_count = game.texts_faded_in_count + 1
+    msg ("<span class=\""+class+"\" style=\"display:none\">"+text+"</span>")
+    JS.eval ("$(\"."+class+"\").fadeIn(parseInt("+interval+"));")
+  ]]>
+  </function>
+
+  <function name="SetHyperlinkStatus" parameters="setting">
+    if (setting = "on") {
+      bool = "true"
+    }
+    else if (setting = "off") {
+      bool = "false"
+    }
+    else {
+      // Incorrect input.  Just turn the links on.
+      bool = "true"
+    }
+    JS.eval ("var linksEnabled = "+bool+";")
+    if (bool = "false") {
+      game.suppresshyperlinks = true
+      JS.eval ("$('.cmdlink,.commandlink').each(function(){$(this).addClass('disabled');});")
+    }
+    else {
+      game.suppresshyperlinks = false
+    }
+  </function>
+  <function name="AslSet" parameters="data">
+    <![CDATA[
+    if (not HasAttribute (game, "runturnscripts") or GetAttribute (game, "aslversion") = "550"){
+      game.suppressturnscripts = true
+    }
+    data = Split(data,"||")
+    foreach (bit, data) {
+      stuff = Split(bit,"=")
+      obj_attr = stuff[0]
+      obj_attr = Split(obj_attr,".")
+      if (ListCount(obj_attr)>2){
+        exclude = obj_attr[ListCount(obj_attr)-1]
+        obj = Join(ListExclude(obj_attr,exclude),".")
+        obj_attr = NewStringList()
+        list add (obj_attr, obj)
+        list add (obj_attr, exclude)
+      }
+      else {
+        obj = obj_attr[0]
+      }
+      if (obj = "game.pov"){
+        obj = game.pov
+      }
+      else if (obj = "game.pov.parent"){
+        obj = game.pov.parent
+      }
+      else {
+        obj = GetObject(obj)
+      }
+      attr = obj_attr[1]
+      val = stuff[1]
+      if (EndsWith(val,"_toInt")) {
+        val = ToInt(Replace(val,"_toInt",""))
+      }
+      else if (EndsWith(val,"_toDouble")) {
+        val = ToDouble(Replace(val,"_toDouble",""))
+      }
+      else if(LCase(val)="false"){
+        val = false
+      }
+      else if(LCase(val)="true"){
+        val = true
+      }
+      set (obj, attr, val)
+    }
+  ]]>
+  </function>
+  
+  <!-- CLOCKLIB -->
+
+  <function name="TimeAsString" type="string">
+    <![CDATA[
+    if (game.clockminutes = 0 and game.clockhours24 = 0) {
+      return (" " + game.clockmidnight)
+    }
+    if (game.clockminutes = 0 and game.clockhours24 = 12) {
+      return (" " + game.clockmidday)
+    }
+    hours = game.clockhours24 % 12
+    if (hours = 0) {
+      hours = 12
+    }
+    s = " " + hours + ":" + DD(game.clockminutes)
+    if (game.clockhours24 < 12) {
+      return (s + " " + game.clockam)
+    }
+    else {
+      return (s + " " + game.clockpm)
+    }
+  ]]>
+  </function>
+
+
+  <!--
+  Should only be called internally.
+  Moves time on 1 minute, and checks to see if any event is set for that minute.
+  -->
+  <function name="IncTime">
+    <![CDATA[
+    on ready {
+      game.clocktime = game.clocktime + 1
+      //msg("game.clocktime = " + game.clocktime)
+      //msg("game.clockevent = " + game.clockevent)
+      game.clockminutes = game.clocktime % 60
+      game.clockhours24 = (game.clocktime / 60) % 24
+      game.clockdays = game.clocktime / (60 * 24)
+      name = "event_" + DD(game.clockdays) + "_" + DD(game.clockhours24) + "_" + DD(game.clockminutes)
+      game.clockcountdown = game.clockcountdown - 1
+      //msg("Looking for: " + name)
+      o = GetObject(name)
+      if (not o = null and HasScript(o, "look")) {
+        if (game.clocktesting) msg("Found: " + o + " (" + o.alias + ")")
+        // this is used by wait
+        game.clockevent = true
+        do(o, "look")
+      }
+      else if (game.clockcountdown < 0 and HasAttribute(game, "clocknextstep")) {
+        if (game.clocktesting) msg("{colour:silver:Step found: " + game.clocknextstep + " (" + game.clocknextstep.alias + ")}")
+        // this is used by wait
+        game.clockevent = true
+        step = game.clocknextstep
+        game.clocknextstep = null
+        do(step, "look")
+      }
+      if (not GetObject("NpcTurnScript") = null) {
+        do(NpcTurnScript, "script")
+      }
+      EachTurn
+      game.clock = TimeAsString()
+    }
+  ]]>
+  </function>
+
+
+  <!--
+  Can be overridden to have stuff happened each minute.
+  This will fire after any event scheduled for this time.
+  -->
+  <function name="EachTurn">
+  </function>
+
+
+
+  <!--
+  Set this during a command to have the given time expire during the command.
+  -->
+  <function name="SetInc" parameters="minutes">
+    game.clockincrement = minutes
+  </function>
+
+
+  <!--
+  Creates a new event for the given time, or as soon after that where there is a slot free.
+  -->
+  <function name="CreateEvent" parameters="time, alias, script">
+    time = game.clocktime + time
+    o = null
+    while (o = null) {
+    o = AttemptCreateEvent(time)
+    time = time + 1
+    }
+    o.look = script
+    o.alias = alias
+  </function>
+
+  <!--
+  Creates a new event for the given time, or as soon after that where there is a slot free.
+  -->
+  <function name="NextStep" parameters="step, delay">
+    game.clocknextstep = step
+    game.clockcountdown = delay
+    //msg("delay=" + delay)
+  </function>
+
+
+
+  <!--
+  Will try to create an event at the given time, returning said event if successful.
+  If another event is set for that time, it will return null.
+  -->
+  <function name="AttemptCreateEvent" parameters="time" type="object">
+    minutes = time % 60
+    hours24 = (time / 60) % 24
+    days = time / (60 * 24)
+    name = "event_" + DD(days) + "_" + DD(hours24) + "_" + DD(minutes)
+    //msg("Setting for: " + name)
+    o = GetObject(name)
+    if (o = null) {
+    create(name)
+    return (GetObject(name))
+    }
+    else {
+    return (null)
+    }
+  </function>
+
+  <!--
+  Sets the game time. This can either be sent as an integer, the number of minutes since midnight on day 1,
+  or as a string, in this format: 01:14:35 (i.e, 2:35 pm on day 1).
+  -->
+  <function name="SetTime" parameters="minutes">
+    if (TypeOf(minutes) = "string") {
+    l = Split(minutes, ":")
+    if (not ListCount(l) = 3) error("SetTime failed to understand " + minutes)
+    game.clockdays = ToInt(StringListItem(l, 0))
+    game.clockhours24 = ToInt(StringListItem(l, 1))
+    game.clockminutes = ToInt(StringListItem(l, 2))
+    game.clocktime = (game.clockdays * 24 + game.clockhours24) * 60 + game.clockminutes
+    }
+    else {
+    game.clocktime = minutes
+    game.clockminutes = game.clocktime % 60
+    game.clockhours24 = (game.clocktime / 60) % 24
+    game.clockdays = game.clocktime / (60 * 24) + 1
+    }
+    if (not GetObject("NpcTurnScript") = null) {
+    DisableTurnScript (NpcTurnScript)
+    }
+    game.clock = TimeAsString()
+  </function>
+
+  <!--
+  Returns true if the game time is after the given time.
+  -->
+  <function name="IsAfter" parameters="time" type="boolean">
+    <![CDATA[
+    if (TypeOf(time) = "string") {
+      l = Split(time, ":")
+      if (not ListCount(l) = 3) error("SetTime failed to understand " + minutes)
+      days = ToInt(StringListItem(l, 0))
+      hours24 = ToInt(StringListItem(l, 1))
+      minutes = ToInt(StringListItem(l, 2))
+      time = (days * 24 + hours24) * 60 + minutes
+    }
+    return (game.clocktime > time)
+  ]]>
+  </function>
+
+  <!--
+  Returns true if the game time is after the given time. This version works for each day,
+  so IsAfterDaily("19:00") is true after 7 pm each day.
+  -->
+  <function name="IsAfterDaily" parameters="time" type="boolean">
+    <![CDATA[
+    if (TypeOf(time) = "string") {
+      l = Split(time, ":")
+      if (not ListCount(l) = 2) error("SetTime failed to understand " + time)
+      days = game.clocktime / (60 * 24)
+      hours24 = ToInt(StringListItem(l, 0))
+      minutes = ToInt(StringListItem(l, 1))
+      time = (days * 24 + hours24) * 60 + minutes
+    }
+    return (game.clocktime > time)
+  ]]>
+  </function>
+
+  <!--
+  Returns the number of minutes since midnight on day 1.
+  -->
+  <function name="GetTime" type="int">
+    return (game.clocktime)
+  </function>
+
+  <!--
+  Pads the given number (or string) is a single digit, it will be padded with an extra leading zero.
+  -->
+  <function name="DD" parameters="s" type="string">
+    <![CDATA[
+    return (Pad (s, 2, "0"))
+  ]]>
+  </function>
+
+
+  <!--
+  Pads the given number or string is returned, padded with extra characters to the right to make it up to the given length.
+  -->
+  <function name="Pad" parameters="string, number, pad" type="string">
+    <![CDATA[
+    text = ""
+    string = ToString(string)
+    for (i, 1, number - LengthOf(string)) {
+      text = text + pad
+    }
+    return (text + string)
+  ]]>
+  </function>
+
+
+  <!--
+  Call this from an event to have it happen in the background. What that means is that
+  if the WAIT command will not terminate at this event.
+  -->
+  <function name="Quiet">
+    <![CDATA[
+    game.clockevent = false
+  ]]>
+  </function>
+
+
+  <!--
+  Moves time forward by the given number of minutes, skipping any intervening events.
+  Note that turnscripts will be run once only.
+  Use with care!
+  -->
+  <function name="SkipTime" parameters="duration">
+    <![CDATA[
+    game.clocktime = game.clocktime + duration
+    game.clockminutes = game.clocktime % 60
+    game.clockhours24 = (game.clocktime / 60) % 24
+    game.clockdays = game.clocktime / (60 * 24)
+  ]]>
+  </function>
+
+
+  <!--
+  Displays the the date as a string. Dates are relative to the year game.clockstartyear, which is 2000 by default.
+  You can override DisplayDate to alter how the date is actually shown.
+  Day 1 is the first of January, 2000 (or whatever year you set game.clockstartyear to). This means you must set the day to 
+  greater than zero in set time.
+  Note that this is an approximation to the Gregorian Calendar; it will handle simple leap years, but is not perfect.
+  It will consider 1900, for example, to be a leap year, however, it is fine for 1901 to 2099, which should cover most games.
+  This could be readily adapted for a fantasy calender.
+  -->
+  <function name="Date" type="string">
+    year = game.clockstartyear
+    day = game.clockdays
+    if (1 > day) error("Date function cannot cope with a day of zero or less")
+    // what year is it?
+    flag = true
+    while (flag) {
+    if (year % 4 = 0) {
+    days_this_year = 366
+    }
+    else {
+    days_this_year = 365
+    }
+    if (day > days_this_year) {
+    year = year + 1
+    day = day - days_this_year
+    }
+    else {
+    flag = false
+    }
+    }
+    // days in month
+    if (year % 4 = 0) {
+    days_in_months = Split("31;29;31;30;31;30;31;31;30;31;30;31", ";")
+    }
+    else {
+    days_in_months = Split("31;28;31;30;31;30;31;31;30;31;30;31", ";")
+    }
+    // what month is it?
+    month = 1
+    for (i, 0, 11) {
+    days_in_month = ToInt(StringListItem(days_in_months, i))
+    if (day > days_in_month) {
+    month = month + 1
+    day = day - days_in_month
+    }
+    else {
+    return (DisplayDate(year, month, day))
+    }
+    }
+  </function>
+
+  <!--
+  Shows the date, nicely formatted
+  -->
+  <function name="DisplayDate" parameters="year, month, day" type="string">
+    months = Split(";January;February;March;April;May;June;July;August;September;October;November;December", ";")
+    return ("" + day + "th of " + StringListItem(months, month) + ", " + year)
+  </function>
+  
+  
+  <function name="MovePlayer" parameters="room"><![CDATA[
+    parent = room
+    if (GetBoolean(game, "clearlastpage")) {
+      if (not GetBoolean(game, "noclear")) {
+        ClearScreen
+      }
+    }
+    else {
+      if (HasString(game, "optionsoutputsection")) {
+        HideOutputSection (game.optionsoutputsection)
+      }
+    }
+    if (not GetBoolean(game, "continuesound")) {
+      stop sound
+    }
+    MoveObject (game.pov, room)
+    if (parent = game.pov.parent and not GetBoolean(game.pov.parent, "runscriptonly")) {
+      if (HasString(game.pov.parent, "sound")) {
+        if (LengthOf(game.pov.parent.sound) > 0) {
+          play sound (game.pov.parent.sound, false, false)
+          game.continuesound = GetBoolean(game.pov.parent, "continuesound")
+        }
+      }
+      if (HasString(game.pov.parent, "picture")) {
+        if (LengthOf(game.pov.parent.picture) > 0) {
+          picture (game.pov.parent.picture)
+          msg ("")
+        }
+      }
+      if (HasString(game.pov.parent, "youtube")) {
+        if (LengthOf(game.pov.parent.youtube) > 0) {
+          JS.AddYouTube (game.pov.parent.youtube)
+          msg ("")
+          msg ("")
+        }
+      }
+    }
+  ]]></function>
+
+  <function name="SwitchToTa"><![CDATA[
+    if (GetBoolean (game, "gamebookmode")){
+      game.gamebookmode = false
+      if (HasAttribute (game, "autodescriptionbak")){
+        game.autodescription = game.autodescriptionbak
+      }
+      if (HasAttribute (game, "echocommandbak")){
+        game.echocommand = game.echocommandbak
+      }
+      if (HasAttribute (game, "enablehyperlinksbak")){
+        game.killhyperlinks = game.enablehyperlinksbak
+      }
+      JS.eval("if (panesVisibleBak){ uiShow (\"#gamePanes\");}")
+      JS.eval("if (locationVisibleBak){ uiShow (\"#location\");}")
+      JS.eval("if (txtCommandDivVisibleBak){ uiShow (\"#txtCommandDiv\");}")
+    }
+    gb_clicks.parent = game
+  ]]></function>
+  
+  <function name="SwitchToGb"><![CDATA[
+    if (not GetBoolean (game, "gamebookmode")){
+      game.autodescriptionbak = game.autodescription
+      game.echocommandbak = game.echocommand
+      game.enablehyperlinksbak = game.enablehyperlinks
+      JS.eval("var panesVisibleBak = isElementVisible('#gamePanes');var locationVisibleBak = isElementVisible('#location');var txtCommandDivVisibleBak = isElementVisible('#txtCommandDiv');")
+    }
+    JS.panesVisible (false)
+    JS.uiHide ("#location")
+    JS.uiHide ("#txtCommandDiv")
+    game.gamebookmode = true
+    game.autodescription = false
+    game.echocommand = false
+    game.killhyperlinks = true
+    if (gb_clicks.parent = game) {
+      gb_clicks.parent = null
+    }
+  ]]></function>
+
+      <command name="gb_clicks">
+        <pattern>#text#</pattern>
+        <script><![CDATA[
+          msg ("<br/><hr/>")
+          command = game.pov.currentcommand
+          // msg (command)
+          found = false
+          foreach (exit, ScopeUnlockedExitsForRoom(game.pov.parent)) {
+            if (exit.alias = Trim(command)) {
+              found = true
+              match = exit
+            }
+          }
+          if (not found) {
+            msg ("Error - no page named '" + command + "'")
+          }
+          else {
+            newpage = match.to
+            JS.disableAllCommandLinks ()
+            MovePlayer (newpage)
+          }
+        ]]></script>
+      </command>
+
+	  
+	  
+  <function name="SuppressTurnscripts">
+    game.suppressturnscripts = true
+  </function>
+  
+  <type name="defaultgame">
+    <enablehyperlinks type="boolean">false</enablehyperlinks>
+    <echocommand/>
+    <echohyperlinks/>
+    <showdescriptiononenter/>
+    <autodescription/>
+    <defaultfont>Georgia, serif</defaultfont>
+    <defaultfontsize type="int">12</defaultfontsize>
+    <defaultbackground>White</defaultbackground>
+    <defaultforeground>Black</defaultforeground>
+    <defaultlinkforeground>Blue</defaultlinkforeground>
+    <backgroundimage type="string"></backgroundimage>
+    <setbackgroundopacity type="boolean">false</setbackgroundopacity>
+    <backgroundopacity type="double">0.5</backgroundopacity>
+    <menufont>Arial</menufont>
+    <menufontsize type="int">9</menufontsize>
+    <menubackground>White</menubackground>
+    <menuforeground>Black</menuforeground>
+    <menuhoverbackground>LightGrey</menuhoverbackground>
+    <menuhoverforeground>Black</menuhoverforeground>
+    <underlinehyperlinks/>
+    <compassdirections type="simplestringlist">[CompassNW];[CompassN];[CompassNE];[CompassW];[CompassE];[CompassSW];[CompassS];[CompassSE];[CompassUp];[CompassDown];[CompassIn];[CompassOut]</compassdirections>
+    <clearframe type="boolean">true</clearframe>
+    <timeelapsed type="int">0</timeelapsed>
+    <appendobjectdescription type="boolean">false</appendobjectdescription>
+    <allobjects type="simplestringlist">[AllObjects]</allobjects>
+    <parserignoreprefixes type="simplestringlist">[ParserIgnorePrefixes]</parserignoreprefixes>
+    <displayroomdescriptiononstart type="boolean">true</displayroomdescriptiononstart>
+    <showpanes type="boolean">false</showpanes>
+    <panesdisabled type="boolean">false</panesdisabled>
+    <showcommandbar/>
+    <showlocation/>
+    
+    <statusandcompassattop type="boolean">false</statusandcompassattop>
+    <turnoffcompass type="boolean">false</turnoffcompass>
+    <turnoffinventory type="boolean">false</turnoffinventory>
+    <turnoffplacesandobjects type="boolean">false</turnoffplacesandobjects>
+    <borderlesscursor type="boolean">true</borderlesscursor>
+    <colourblend type="boolean">false</colourblend>
+    <commandpane type="boolean">false</commandpane>
+    <customstatuspane type="boolean">false</customstatuspane>
+    <panestheme>Classic</panestheme>
+    <shadowbox type="boolean">false</shadowbox>
+    <respondtogridclicks type="boolean">false</respondtogridclicks>
+    <commandcursor>&gt;</commandcursor>
+    <moneyformat>$!</moneyformat>
+    <classiclocation type="boolean">false</classiclocation>
+    <customlocationcolour>Black</customlocationcolour>
+    <customlocationtextcolour>White</customlocationtextcolour>
+    <customlocationbordercolour>Black</customlocationbordercolour>
+    <turnoffsavebutton type="boolean">false</turnoffsavebutton>
+    <mapexitwidth type="int">1</mapexitwidth>
+    <mapexitcolour>Black</mapexitcolour>
+    
+    <setcustomwidth type="boolean">false</setcustomwidth>
+    <customwidth type="int">950</customwidth>
+    <setcustompadding type="boolean">false</setcustompadding>
+    <custompaddingtop type="int">30</custompaddingtop>
+    <custompaddingbottom type="int">0</custompaddingbottom>
+    <custompaddingleft type="int">20</custompaddingleft>
+    <custompaddingright type="int">20</custompaddingright>
+    <showborder/>
+    <showscore type="boolean">false</showscore>
+    <showhealth type="boolean">false</showhealth>
+    <showmoney type="boolean">false</showmoney>
+    <showtitle/>
+    <autodisplayverbs/>
+    <clearscreenonroomenter type="boolean">false</clearscreenonroomenter>
+    <autodescription_youarein type="int">1</autodescription_youarein>
+    <autodescription_youcansee type="int">3</autodescription_youcansee>
+    <autodescription_youcango type="int">4</autodescription_youcango>
+    <autodescription_description type="int">2</autodescription_description>
+    <autodescription_youarein_useprefix type="boolean">false</autodescription_youarein_useprefix>
+    <autodescription_youarein_newline type="boolean">false</autodescription_youarein_newline>
+    <autodescription_youcansee_newline type="boolean">false</autodescription_youcansee_newline>
+    <autodescription_youcango_newline type="boolean">false</autodescription_youcango_newline>
+    <autodescription_description_newline type="boolean">true</autodescription_description_newline>
+    <changeroom_newline/>
+    <command_newline type="boolean">false</command_newline>
+    <description type="string"></description>
+    <languageid>[LanguageId]</languageid>
+    <gridmap type="boolean">false</gridmap>
+    <mapscale type="int">30</mapscale>
+    <mapsize type="int">300</mapsize>
+    <changedpov type="script">
+      InitPOV (oldvalue, game.pov)
+    </changedpov>
+    <feature_lightdark type="boolean">true</feature_lightdark>
+    <feature_pictureframe type="boolean">false</feature_pictureframe>
+    <feature_limitinventory type="boolean">false</feature_limitinventory>
+    <feature_asktell type="boolean">true</feature_asktell>
+    <feature_annotations type="boolean">false</feature_annotations>
+    <feature_advancedwearables type="boolean">false</feature_advancedwearables>
+    <feature_advancedscripts type="boolean">true</feature_advancedscripts>
+    <deactivatecommandlinks type="boolean">false</deactivatecommandlinks>
+    <multiplecommands type="boolean">false</multiplecommands>
+    <publishfileextensions>*.jpg;*.jpeg;*.png;*.gif;*.js;*.wav;*.mp3;*.htm;*.html;*.svg;*.ogg;*.ogv;*.mp4</publishfileextensions>
+    <nohtmllog/>
+    <notrancript type="boolean">false</notrancript>
+    <aslversion type="string">550</aslversion>
+    <kvmod/>
+    <feature_turncount />
+    <turncount type="int">0</turncount>
+    <oxfordcomma />
+    <inherit name="editor_object" />
+    <clocktime type="int">0</clocktime>
+    <clockminutes type="int">0</clockminutes>
+    <clockhours24 type="int">0</clockhours24>
+    <clockdays type="int">0</clockdays>
+    <clockcountdown type="int">0</clockcountdown>
+    <clockincrement type="int">1</clockincrement>
+    <clockwaittime type="int">1</clockwaittime>
+    <clockmidnight>12 midnight</clockmidnight>
+    <clockmidday>12 noon</clockmidday>
+    <clockam>am</clockam>
+    <clockpm>pm</clockpm>
+    <clocktesting type="boolean">false</clocktesting>
+    <clockmsg>The time is ###.</clockmsg>
+    <clockwaitmsg>You wait ### minute{either game.clockwaittime=1:|s}, but nothing happens.</clockwaitmsg>
+    <clockchangedtime type="script">
+      JS.eval("$('#clock').html('" + TimeAsString() + "');")
+    </clockchangedtime>
+    <clockstartyear type="int">2018</clockstartyear>
+    <!-- Scripts used by the text processor -->
+    <textprocessorcommands type="scriptdictionary">
+      <item key="if ">
+        game.textprocessorcommandresult = ProcessTextCommand_If (section, data)
+      </item>
+      <item key="either ">
+        game.textprocessorcommandresult = ProcessTextCommand_Either (section, data)
+      </item>
+      <item key="here ">
+        game.textprocessorcommandresult = ProcessTextCommand_Here (section, data)
+      </item>
+      <item key="nothere ">
+        game.textprocessorcommandresult = ProcessTextCommand_Here (section, data)
+      </item>
+      <item key="popup:">
+        game.textprocessorcommandresult = ProcessTextCommand_Popup (section, data)
+      </item>
+      <item key="i:">
+        game.textprocessorcommandresult = ProcessTextCommand_Format (section, data)
+      </item>
+      <item key="b:">
+        game.textprocessorcommandresult = ProcessTextCommand_Format (section, data)
+      </item>
+      <item key="s:">
+        game.textprocessorcommandresult = ProcessTextCommand_Format (section, data)
+      </item>
+      <item key="u:">
+        game.textprocessorcommandresult = ProcessTextCommand_Format (section, data)
+      </item>
+      <item key="colour:">
+        game.textprocessorcommandresult = ProcessTextCommand_Colour (section, data)
+      </item>
+      <item key="color:">
+        game.textprocessorcommandresult = ProcessTextCommand_Colour (section, data)
+      </item>
+      <item key="back:">
+        game.textprocessorcommandresult = ProcessTextCommand_Colour (section, data)
+      </item>
+      <item key="object:">
+        game.textprocessorcommandresult = ProcessTextCommand_Object (section, data)
+      </item>
+      <item key="command:">
+        game.textprocessorcommandresult = ProcessTextCommand_Command (section, data)
+      </item>
+      <item key="page:">
+        game.textprocessorcommandresult = ProcessTextCommand_Command (section, data)
+      </item>
+      <item key="exit:">
+        game.textprocessorcommandresult = ProcessTextCommand_Exit (section, data)
+      </item>
+      <item key="once:">
+        game.textprocessorcommandresult = ProcessTextCommand_Once (section, data)
+      </item>
+      <item key="notfirst:">
+        game.textprocessorcommandresult = ProcessTextCommand_NotFirst (section, data)
+      </item>
+      <item key="random:">
+        game.textprocessorcommandresult = ProcessTextCommand_Random (section, data)
+      </item>
+      <item key="rndalt:">
+        game.textprocessorcommandresult = ProcessTextCommand_RandomAlias (section, data)
+      </item>
+      <item key="img:">
+        game.textprocessorcommandresult = ProcessTextCommand_Img (section, data)
+      </item>
+      <item key="counter:">
+        game.textprocessorcommandresult = ProcessTextCommand_Counter (section, data)
+      </item>
+      <item key="select:">
+        game.textprocessorcommandresult = ProcessTextCommand_Select (section, data)
+      </item>
+      <item key="eval:">
+        game.textprocessorcommandresult = ProcessTextCommand_Eval (section, data)
+      </item>
+      <item key="=">
+        game.textprocessorcommandresult = ProcessTextCommand_Eval (section, data)
+      </item>
+    </textprocessorcommands>
+    <show_fancy_score type="boolean">true</show_fancy_score>
+	<feature_ingameclock type="boolean">false</feature_ingameclock>
+    <feature_sidenav type="boolean">false</feature_sidenav>
+  </type>
+  
+
+  
+  
+  <function name="FormatObjectList" type="string" parameters="preList, parent, preFinal, postList">
+    <![CDATA[
+    // Modified to handle the Oxford comma
+    result = ""
+    count = 0
+    list = RemoveSceneryObjects(GetDirectChildren(parent))
+    if (CheckDarkness()) {
+      list = RemoveDarkObjects(list)
+    }
+    listLength = ListCount(list)
+    foreach (item, list) {
+      if (LengthOf(result) = 0) result = preList + " "
+      result = result + GetDisplayNameLink(item, "object")
+      if (CanSeeThrough(item)) {
+        result = result + FormatObjectList(" (" + item.contentsprefix, item, preFinal, ")")
+      }
+      count = count + 1
+      if (count = listLength - 1) {
+        if(GetBoolean (game,"oxfordcomma") and listLength>2){
+          result = result + ", " + preFinal + " "
+        }
+        else{
+          result = result + " " + preFinal + " "
+        }
+      }
+      else if (count < listLength) {
+        result = result + ", "
+      }
+      else {
+        result = result + postList
+      }
+    }
+    return (result)
+  ]]>
+  </function>
+  
+   <function name="FormatExitList" type="string" parameters="preList, list, preFinal, postList">
+    <![CDATA[
+      // Modified to handle the Oxford comma
+      result = ""
+      listLength = ListCount(list)
+      if (listLength > 0) {
+        count = 0
+        result = preList + " "
+        foreach (item, list) {
+          result = result + GetDisplayNameLink(item, "exit")
+          count = count + 1
+          if (count = listLength - 1) {
+            if(GetBoolean (game,"oxford_comma") and listLength>2){
+              result = result + ", " + preFinal + " "
+            }
+            else{
+              result = result + " " + preFinal + " "
+            }
+          }
+          else if (count < listLength) {
+            result = result + ", "
+          }
+        }
+        result = result + postList
+      }
+      return (result)
+    ]]>
+  </function>
+  
+  <function name="GetListDisplayAlias" type="string" parameters="obj">
+    <![CDATA[
+    if (HasString(obj, "listalias")) {
+      result = ProcessText(obj.listalias)
+    }
+    else {
+      result = GetDisplayAlias(obj)
+    }
+    return (result)
+  ]]>
+  </function>
+  
+  <function name="ShowRoomDescription">
+    <![CDATA[
+    if (not GetBoolean (game, "verboseonly ")){
+      if (GetBoolean(game,"brief_descriptions")) {
+        if (game.pov.parent.visited) {
+          if ((player.currentcommand = "l") or player.currentcommand = "look") {
+            if (not GetBoolean(game, "alwayslook")) {
+              game.autodescription_description = 0
+            }
+            else {
+              // Do nothing
+            }
+          }
+          else {
+            game.autodescription_description = 0
+          }
+        }
+      }
+    }
+    isDark = CheckDarkness()
+    if (isDark) {
+      descriptionfield = "darkroomdescription"
+    }
+    else {
+      descriptionfield = "description"
+    }
+    if (game.autodescription) {
+      desc = ""
+      for (i, 1, 4) {
+        if (i = game.autodescription_youarein) {
+          if (game.autodescription_youarein_useprefix) {
+            youarein = game.pov.parent.descprefix
+            desc = AddDescriptionLine (desc, youarein + " " + GetDisplayName(game.pov.parent) + ".")
+          }
+          else {
+            desc = AddDescriptionLine (desc, "<b>" + CapFirst(GetDisplayName(game.pov.parent)) + "</b>")
+          }
+          if (game.autodescription_youarein_newline) {
+            msg (desc + "<br/>")
+            desc = ""
+          }
+        }
+        if (i = game.autodescription_youcansee) {
+          objects = FormatObjectList(game.pov.parent.objectslistprefix, GetNonTransparentParent(game.pov.parent), Template("And"), ".")
+          desc = AddDescriptionLine(desc, objects)
+          if (game.autodescription_youcansee_newline) {
+            msg (desc + "<br/>")
+            desc = ""
+          }
+        }
+        if (i = game.autodescription_youcango) {
+          exits = FormatExitList(game.pov.parent.exitslistprefix, GetExitsList(), Template("Or"), ".")
+          desc = AddDescriptionLine(desc, exits)
+          if (game.autodescription_youcango_newline) {
+            msg (desc + "<br/>")
+            desc = ""
+          }
+        }
+        if (i = game.autodescription_description) {
+          if (HasScript(game.pov.parent, descriptionfield)) {
+            if (LengthOf(desc) > 0) {
+              msg (desc)
+              desc = ""
+            }
+            do (game.pov.parent, descriptionfield)
+            if (game.autodescription_description_newline) {
+              msg ("")
+            }
+          }
+          else {
+            desc = AddDescriptionLine(desc, GetRoomDescription())
+            if (game.autodescription_description_newline) {
+              msg (desc + "<br/>")
+              desc = ""
+            }
+          }
+        }
+      }
+      if (LengthOf(desc) > 0) {
+        msg (desc)
+      }
+    }
+    else {
+      if (HasScript(game.pov.parent, descriptionfield)) {
+        do (game.pov.parent, descriptionfield)
+      }
+      else {
+        fulldesc = GetRoomDescription()
+        if (LengthOf(fulldesc) > 0) {
+          msg (fulldesc)
+        }
+      }
+    }
+    if (GetBoolean(game,"brief_descriptions")) {
+      game.autodescription_description = game.autodescription_descriptionBak
+    }
+  ]]>
+  </function>
+  
+  <!--
+    This library has been modified to work with Quest 5.8.
+    
+    The documentation can be found here:
+	https://github.com/KVonGit/AudioVideoLib/wiki
+
+-->
+
+  <function name="PlaySound" parameters="src, sync, loop, id, controls, addscript, callback">
+    firsttime {
+     SendToJsEval(play_audio_lib_stuff.js)
+    }
+    if (sync and loop) {
+      error ("Attempted to loop and sync the same sound!")
+    }
+    src = GetSrc(src)
+    if (id = "") {
+      id = CreateAudioID()
+    }
+    id = Replace(id, " ", "_")
+    JS.makeAudio (src, sync, loop, id, controls)
+    if (addscript) {
+      SetAudioCallback (id, callback)
+    }
+    if (sync) {
+      DoAudioSync
+    }
+  </function>
+
+  <function name="CreateAudioID" type="string">
+    if (not HasAttribute(game,"audiofilesplayed")) {
+    game.audiofilesplayed = 0
+    }
+    game.audiofilesplayed = game.audiofilesplayed + 1
+    return ("audio-" + game.audiofilesplayed)
+  </function>
+
+  <function name="SetAudioCallback" parameters="id, callback">
+    js = "$('#"+id+"').on('ended', function(){ASLEvent('EndAudioSyncAndInvoke',$(this).attr('id'));$(this).remove();});"
+    JS.eval (js)
+    if (not HasAttribute(game, "audiofinishedcallback")) {
+    game.audiofinishedcallback = NewScriptDictionary()
+    }
+    dictionary add (game.audiofinishedcallback, id, callback)
+  </function>
+
+  <function name="DestroyAudio" parameters="id">
+    JS.eval ("$('#"+id+"').remove();")
+  </function>
+
+  <function name="DestroyAllAudio">
+    stop sound
+    JS.eval ("$('audio').remove();")
+    EndAudioSync("")
+    game.audiofinishedcallback = NewScriptDictionary()
+  </function>
+
+  <function name="DestroyAudioAndRunScript" parameters="id">
+    JS.eval ("$('#"+id+"').remove();")
+    EndAudioSyncAndInvoke(id)
+  </function>
+
+  <function name="DoAudioSync">
+    firsttime {
+      JS.eval ("var sendCommandBak = sendCommand;")
+    }
+    game.audiosyncing = true
+    JS.eval ("sendCommand = function(){$('input#txtCommand').val();};")
+  </function>
+
+  <function name="EndAudioSync" parameters="bs">
+    game.preventturnscripts = true
+    game.audiosyncing = false
+    JS.endAudioSync()
+  </function>
+
+  <function name="EndAudioSyncAndInvoke" parameters="id">
+    game.preventturnscripts = true
+    game.audiosyncing = false
+    JS.endAudioSync()
+    if (HasAttribute(game, "audiofinishedcallback")) {
+    if (DictionaryContains(game.audiofinishedcallback,id)) {
+    invoke (ScriptDictionaryItem(game.audiofinishedcallback,id))
+    dictionary remove(game.audiofinishedcallback,id)
+    if (DictionaryCount(game.audiofinishedcallback)>0){
+    DoAudioSync
+    }
+    }
+    }
+  </function>
+
+  <function name="GetSrc" parameters="src" type="string">
+    src = Split(src,";")
+    online = false
+    pres = Split("http;ftp",";")
+    tags = NewStringList()
+    foreach (url, src) {
+    foreach (pre, pres) {
+    if (StartsWith(url,pre)) {
+    online = true
+    }
+    }
+    arr = Split(url,".")
+    type = arr[ListCount(arr)-1]
+    if (online) {
+    thisurl = url
+    }
+    else {
+    thisurl = (GetFileURL(url))
+    }
+    list add (tags, Chr(60)+"source src=\""+thisurl+"\" type=\"audio/"+type+"\" "+Chr(62))
+    }
+    srctags = Join(tags,"")
+    srctags = Replace(srctags,"/ogv","/ogg")
+    return (srctags)
+  </function>
+
+  <!--
+    FinishTurn modified function to keep turn scripts from firing when ending a sync
+-->
+  
+  <!-- This was for Quest 5.7.2!  Quest 5.8 will handle this natively.
+
+  <function name="FinishTurn">
+    if (GetBoolean(game,"preventturnscripts")) {
+    game.preventturnscripts = false
+    }
+    else {
+    RunTurnScripts
+    }
+    UpdateStatusAttributes
+    CheckDarkness
+    UpdateObjectLinks
+  </function>
+  -->
+  
+  
+  <!--  
+  This would be for Quest 5.8, but I don't need it in this setup.
+  
+  <function name="FinishTurn">
+      <![CDATA[
+    // Modded by KV to handle multiple commands correctly
+    if (not GetBoolean(game, "suppressturnscripts")) {
+      if (HasAttribute(game, "clockincrement")){
+        for (i, 1, game.clockincrement) {
+          IncTime ()
+        }	
+      }
+    }
+    if (HasAttribute (game, "clockincrement")){
+      game.clockincrement = 1
+    }
+    if (HasAttribute (game, "runturnscripts") or GetAttribute(game, "aslversion") = "580" or GetBoolean(game, "multiplecommands")){
+      if (not GetBoolean(game, "suppressturnscripts")) {
+        if (GetBoolean (game, "runturnscripts")){
+          RunTurnScripts
+        }
+      }
+	    game.runturnscripts = false
+    }
+	  else if (not GetBoolean(game, "suppressturnscripts")) {
+      if (GetBoolean (game, "feature_turncount")){
+        IncreaseObjectCounter(game, "turncount")
+      }
+      RunTurnScripts
+    }
+    // END OF MOD
+    game.suppressturnscripts = false
+    UpdateStatusAttributes
+    CheckDarkness
+    UpdateObjectLinks
+  ]]></function>
+  
+  
+  -->
+
+  <!-- EXTRAS  -->
+
+
+  <!-- 
+    The following functions are technically unnecessary, but I think they are nice to have.
+-->
+
+  <function name="PlayAudio" parameters="src">
+    PlaySound (src, false, false, "", false, false) {
+    }
+  </function>
+
+  <function name="PlayAudioID" parameters="src, id">
+    PlaySound (src, false, false, id, false, false) {
+    }
+  </function>
+
+  <function name="PlayAudioLooped" parameters="src">
+    PlaySound (src, false, true, "", false, false) {
+    }
+  </function>
+
+  <function name="PlayAudioLoopedID" parameters="src, id">
+    PlaySound (src, false, true, id, false, false) {
+    }
+  </function>
+
+  <function name="PlayAudioSynced" parameters="src">
+    PlaySound (src, true, false, "", false, false) {
+    }
+  </function>
+
+  <function name="PlayAudioSyncedID" parameters="src, id">
+    PlaySound (src, true, false, id, false, false) {
+    }
+  </function>
+
+  <function name="PlayAudioSyncedWithCallback" parameters="src, callback">
+    PlaySound (src, true, false, "", false, true, callback)
+  </function>
+
+  <function name="PlayAudioSyncedIDWithCallback" parameters="src, id, callback">
+    PlaySound (src, true, false, id, false, true, callback)
+  </function>
+
+  <function name="PlayAudioControls" parameters="src">
+    PlaySound (src, false, false, "", true, false) {
+    }
+  </function>
+
+  <function name="PlayAudioIDControls" parameters="src, id">
+    PlaySound (src, false, false, id, true, false) {
+    }
+  </function>
+
+  <function name="PlayAudioLoopedControls" parameters="src">
+    PlaySound (src, false, true, "", true, false) {
+    }
+  </function>
+
+  <function name="PlayAudioLoopedIDControls" parameters="src, id">
+    PlaySound (src, false, true, id, true, false) {
+    }
+  </function>
+
+  <function name="PlayAudioSyncedControls" parameters="src">
+    PlaySound (src, true, false, "", true, false) {
+    }
+  </function>
+
+  <function name="PlayAudioSyncedIDControls" parameters="src, id">
+    PlaySound (src, true, false, id, true, false) {
+    }
+  </function>
+
+  <function name="PlayAudioSyncedWithCallbackControls" parameters="src, callback">
+    PlaySound (src, true, false, "", true, true, callback)
+  </function>
+
+  <function name="PlayAudioSyncedIDWithCallbackControls" parameters="src, id, callback">
+    PlaySound (src, true, false, id, true, true, callback)
+  </function>
+
+  <function name="PauseAudio" parameters="id">
+    JS.pauseAudio(id)
+  </function>
+
+  <function name="ResumePausedAudio" parameters="id">
+    JS.resumePausedAudio(id)
+  </function>
+
+  <function name="SetAudioVolume" parameters="id,vol">
+    // vol must be between 0 and 1
+    JS.setAudioVolume(id,vol)
+  </function>
+
+  <function name="MuteAudio" parameters="id">
+    JS.muteAudio(id)
+  </function>
+
+  <function name="UnmuteAudio" parameters="id">
+    JS.unmuteAudio(id)
+  </function>
+
+  <function name="MuteAllAudio">
+    JS.muteAllAudio()
+  </function>
+
+  <function name="UnmuteAllAudio">
+    JS.unmuteAllAudio()
+  </function>
+
+  <function name="PauseAllAudio">
+    JS.pauseAllAudio()
+  </function>
+
+  <function name="RestartAllPausedAudio">
+    JS.restartAllPausedAudio()
+  </function>
+
+  <function name="SetAllAudioVolume" parameters="vol">
+    // vol must be between 0 and 1
+    JS.setAllAudioVolume(vol)
+  </function>
+
+  <function name="SetAudioPosition" parameters="id,pos">
+    JS.setAudioPosition(id,pos)
+  </function>
+
+  <function name="IncreaseVolume" parameters="id">
+    <![CDATA[
+    // vol must be between 0 and 1 
+    JS.increaseVolume(id)
+  ]]>
+  </function>
+
+  <function name="DecreaseVolume" parameters="id">
+    <![CDATA[
+    // vol must be between 0 and 1 
+    JS.decreaseVolume(id)
+  ]]>
+  </function>
+
+  <function name="IncreaseAllVolume" parameters="id">
+    JS.increaseAllVolume()
+  </function>
+
+  <function name="DecreaseAllVolume" parameters="id">
+    JS.decreaseAllVolume()
+  </function>
+
+  <!-- END OF UNNECESSARY FUNCTIONS -->
+
+
+
+  <!-- 
+    DEBUGGING FUNCTIONS 
+-->
+
+  <!--
+    AudioLog and TestAudio are not used by any functions.
+    They are only included for debugging purposes.
+-->
+
+  <function name="AudioLog" parameters="text">
+    game.preventturnscripts = true
+    Log (text)
+  </function>
+  <function name="TestAudio" parameters="src">
+    s = Chr(60)+"audio src='"+GetSrc(src)+"' '"
+    JS.testAudio (s)
+  </function>
+
+
+
+
+  <!-- Javascript stuff -->
+
+  <function name="SendToJsEval" parameters="data">
+    <![CDATA[
+    regEx = "//"
+	js = Split(data,Chr(60)+"br/"+Chr(62))
+	notes = NewStringList()
+	foreach (line, js) {
+	  if (StartsWith(line,"//")) {
+		list add (notes, line)
+	  }
+	}
+	js = ListExclude(js,notes)
+	finaljs = NewStringList()
+	foreach (line, js) {
+	  code = line
+	  if (IsRegExMatch(regEx,line)) {
+		list = Split(line,"//")
+		code = list[0]
+	  }
+	  list add (finaljs, code)
+	}
+	js = Join(finaljs,"")
+	js = Replace(js, "[br]", Chr(60)+"br/"+Chr(62))
+	js = Replace(js, "[br/]", Chr(60)+"br/"+Chr(62))
+	js = Replace(js, "[break]", Chr(60)+"br/"+Chr(62))
+	js = Replace(js, "[linebreak]", Chr(60)+"br/"+Chr(62))
+	JS.eval (js)
+  ]]>
+  </function>
+
+  <command name="play_audio_lib_stuff">
+    <parent>game</parent>
+    <js>
+      <![CDATA[
+var mobilePlayer = (typeof (currentTab) === 'string');
+
+function makeAudio(src,sync,loop,id,controls,callback){
+  if (sync && loop){
+    throw new Error('makeAudio():  Attempted to sync and loop the same sound.');
+
+  }
+  var s = String.fromCharCode(60)+'audio ';
+  if(typeof(id)==="string"){ 
+    s += 'id=\''+id+'\'  '; 
+  }
+  if(controls){
+    s += ' controls controlsList=\'nodownload\' '; 
+  }
+  if(loop){ 
+    s += ' loop '; 
+  }
+  s += ' autoplay' + String.fromCharCode(62) +''+src;
+  s += String.fromCharCode(60)+'/audio'+String.fromCharCode(62);
+  var thisTag = s;
+  if(mobilePlayer){
+    var repl = String.fromCharCode(60);
+    repl += 'audio controls controlsList=\'nodownload\' class=\'mob-aud\'';
+    thisTag = thisTag.replace(String.fromCharCode(60)+'audio', repl);
+    var tag = String.fromCharCode(60)+'p'+String.fromCharCode(62);
+    tag += thisTag+''+String.fromCharCode(60);
+    tag += '/p'+String.fromCharCode(62);
+    addText(tag);
+    if(typeof($('.mob-aud').last().on('ended'))==='function'){
+      onEndBak = $('.mob-aud').last().on('ended');
+    }else{
+      onEndBak=function(){};
+    }
+    $('.mob-aud').last().insertAfter($('#txtCommandDiv')).on('ended',function(){
+      onEndBak();
+      $(this).remove();
+    }).css('margin-top','4px');
+  }else if (controls){
+    var addon = String.fromCharCode(60)+'p'+String.fromCharCode(62);
+    addon += thisTag+''+String.fromCharCode(60)+'/p'+String.fromCharCode(62);
+    $("#divOutput").after(addon);
+  }else{
+    $('body').after(thisTag);
+  }
+}
+
+var safeBreak = String.fromCharCode(60)+'br/'+String.fromCharCode(62);
+var noSoundMsg = safeBreak+'There is no sound playing.';
+
+function endAudioSync(){
+  if (typeof(sendCommandBak) === 'function'){sendCommand = sendCommandBak;}
+}
+
+function increaseVolume(id){
+    var thisAud = document.getElementById(id);
+	if(!thisAud){
+	  addTextAndScroll(safeBreak+'There is no sound playing.');
+	}
+	else if(thisAud.volume*10<10){
+	  thisAud.volume = (thisAud.volume*10+1)/10;
+	  addTextAndScroll(safeBreak+'The volume has been increased.');
+	}
+	else{
+	  addTextAndScroll(safeBreak+'The volume is already at the maximum level.');
+	}
+}
+
+function increaseAllVolume(){
+  $('audio').each(function(){
+    if (this.volume!=1){this.volume = this.volume + .1};
+  });
+}
+
+function decreaseVolume (id) {
+  var thisAud = document.getElementById(id);
+  if(!thisAud){
+    addTextAndScroll(safeBreak+'There is no sound playing.');
+  }else if(thisAud.volume*10>0){
+    thisAud.volume = (thisAud.volume*10-1)/10;
+    addTextAndScroll(safeBreak+ 'The volume has been decreased.');
+  }else{
+    addTextAndScroll(safeBreak+'The volume is already all the way down.');
+  }
+}
+
+function decreaseAllVolume(){
+  $('audio').each(function(){
+    if (this.volume>=0.1){this.volume = this.volume - .1};
+  });
+}
+
+function endAudioSync(){
+  if (typeof(sendCommandBak) === 'function'){
+    sendCommand = sendCommandBak;
+  }
+}
+
+function setAllAudioVolume(vol){
+  var audios = document.getElementsByTagName('audio');
+  for(aud in audios){
+    audios[aud].volume = vol;
+  }
+}
+
+function setAudioCurrentTime(id,pos){
+  document.getElementById(id).currentTime = pos;
+}
+
+function pauseAudio(id){
+  var thisAud = document.getElementById(id);
+  thisAud.pause();
+}
+
+function resumePausedAudio(id){
+  var thisAud = document.getElementById(id);
+  thisAud.play();
+}
+
+function restartPausedAudio(id){
+  var thisAud = document.getElementById(id);
+  thisAud.load();
+  thisAud.play()
+}
+
+function setAudioVolume(id,vol){
+  document.getElementById(id).volume = vol;
+}
+
+
+
+function muteAudio(id){
+  var aud = document.getElementById(id);
+  aud.volbak = aud.volume;
+  setAudioVolume(id,0);
+}
+
+
+function unmuteAudio(id){
+  var aud = document.getElementById(id);
+  aud.volume = aud.volbak;
+}
+
+function muteAllAudio(){
+  $('audio').each(function(){
+    $(this).attr('volbak',this.volume);
+  });
+  var audios = document.getElementsByTagName('audio');
+  for(aud in audios){
+    if (typeof(audios[aud].volume)!='undefined'){
+      audios[aud].volume=0;
+    }
+  }
+}
+
+
+function unmuteAllAudio(){
+  $('audio').each(function(){
+    $(this).prop('volume',$(this).attr('volbak'));
+  });
+}
+
+function pauseAllAudio(){
+  var audios = document.getElementsByTagName('audio');
+  for(aud in audios){
+    audios[aud].pause();
+  }
+}
+
+function destroyAllAudio(){
+  $('audio').remove();
+}
+
+
+function restartAllPausedAudio(){
+  var audios = document.getElementsByTagName('audio');
+  for(aud in audios){
+    audios[aud].audios[aud].play();
+  }
+}
+
+function setAllAudioVolume(vol){
+  var audios = document.getElementsByTagName('audio');
+  for(aud in audios){
+    audios[aud].volume = vol;
+  }
+}
+
+function setAudioPosition(id,pos){
+  document.getElementById(id).currentTime = pos;
+}
+
+function testAudio(s){
+    s = s + " onloadstart='ASLEvent(\"AudioLog\",\"Loading \"+$(this).attr(\"src\"));$(this).remove();'";
+    s = s + " onerror='ASLEvent(\"AudioLog\",$(this).attr(\"src\")+\" failed to load.\");$(this).remove();'";
+    s = s + "/"+Chr(62);
+    addText(s);
+}
+  ]]>
+    </js>
+  </command>
+
+  <function name="AddVideo" parameters="src, sync, loop, id, controls, autoplay, addscript, callback">
+    if (sync and loop) {
+      error ("Attempted to loop and sync the same sound!")
+    }
+    src = GetSrc(src)
+    lp = ""
+    if (loop){
+      lp = " loop "
+    }
+    ctrls = ""
+    if (controls) {
+      ctrls = " controls "
+    }
+    aplay = ""
+    if (autoplay) {
+      aplay = " autoplay "
+    }
+    if (id = "") {
+      id = CreateVideoID()
+    }
+    id = Replace(id, " ", "_")
+    s = Chr(60) + "video " + ctrls + " " + lp + " " + aplay
+    s = s + " style='width:100%;'"
+    s = s + "id='" + id + "'" + Chr(62)
+    s = s + src
+    s = s + Chr(60)+"/video"+Chr(62)
+    msg (s)
+    if (addscript) {
+      SetVideoCallback (id, callback)
+    }
+    if (sync) {
+      DoVideoSync
+    }
+  </function>
+
+  <function name="HideVideo" parameters="id">
+    JS.uiHide(id)
+  </function>
+
+  <function name="DestroyVideo" parameters="id">
+    JS.eval("$('#"+id+"').remove();")
+  </function>
+
+  <function name="ShowHiddenVideo" parameters="id">
+    JS.uiShow(id)
+  </function>
+
+  <function name="PauseVideo" parameters="id">
+    JS.eval("document.getElementById('"+id+"').pause();")
+  </function>
+
+
+  <function name="ResumePausedVideo" parameters="id">
+    JS.eval("document.getElementById('"+id+"').play();")
+  </function>
+
+
+  <function name="RestartPausedVideo" parameters="id">
+    JS.eval("document.getElementById('"+id+"').load();")
+  </function>
+
+
+  <function name="SetVideoCurrentTime" parameters="id,time">
+    JS.eval("document.getElementById('"+id+"').currentTime = "+time+";")
+  </function>
+
+  <function name="CreateVideoID" type="string">
+    if (not HasAttribute(game,"videofilesplayed")) {
+      game.videofilesplayed = 0
+    }
+    game.videofilesplayed = game.videofilesplayed + 1
+    return ("video-" + game.videofilesplayed)
+  </function>
+
+  <function name="SetVideoCallback" parameters="id, callback">
+    js = "$('#"+id+"').on('ended',function(){ASLEvent('EndVideoSyncAndInvoke',$(this).attr('id'));/*$(this).remove();*/});"
+    JS.eval (js)
+    if (not HasAttribute(game, "videofinishedcallback")) {
+      game.videofinishedcallback = NewScriptDictionary()
+    }
+    dictionary add (game.videofinishedcallback, id, callback)
+  </function>
+
+  <function name="EndVideoSync" parameters="bs">
+    game.preventturnscripts = true
+    game.videosyncing = false
+    JS.endAudioSync()
+  </function>
+
+  <function name="EndVideoSyncAndInvoke" parameters="id">
+    game.preventturnscripts = true
+    game.audiosyncing = false
+    JS.endAudioSync()
+    if (HasAttribute(game, "videofinishedcallback")) {
+      if (DictionaryContains(game.videofinishedcallback,id)) {
+        invoke (ScriptDictionaryItem(game.videofinishedcallback,id))
+        dictionary remove(game.videofinishedcallback,id)
+        if (DictionaryCount(game.videofinishedcallback)>0){
+          DoVideoSync
+        }
+      }
+    }
+  </function>
+
+  <function name="DoVideoSync">
+    firsttime {
+      JS.eval ("var sendCommandBak = sendCommand;")
+    }
+    game.videosyncing = true
+    JS.eval ("sendCommand = function(){$('input#txtCommand').val();};")
+  </function>
+
+  <function name="DestroyAllVideo">
+    JS.eval("$('video').remove();")
+  </function>
+
+
+  <!-- 
+  GUI Stuff 
+-->
+
+  <editor>
+    <appliesto>(function)PlaySound</appliesto>
+    <display>Add sound: #0</display>
+    <category>[EditorScriptsOutputOutput]</category>
+    <create>PlaySound ("", false, false, "", false, false){}</create>
+    <add>Add sound (NEW)</add>
+    <advanced />
+
+    <control>
+      <controltype>label</controltype>
+      <caption>[EditorScriptsOutputPlaysound]</caption>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>0</attribute>
+      <simple>filename</simple>
+      <simpleeditor>file</simpleeditor>
+      <source>*.wav;*.mp3;*.ogg</source>
+      <filefiltername>Sound Files</filefiltername>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>ID (Optional):</caption>
+      <breakbefore/>
+    </control>
+
+    <control>
+      <controltype>textbox</controltype>
+      <attribute>3</attribute>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>[EditorScriptsOutputWaitforsound]</caption>
+      <breakbefore/>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>1</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>[EditorScriptsOutputLoop]</caption>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>2</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Show controls</caption>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>4</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Add a callback script</caption>
+      <breakbefore/>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>5</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>
+        Script to run after sound has finished  (Optional)
+
+        (You must set "Add a callback script" to yes for this script to run!)
+      </caption>
+      <breakbefore/>
+    </control>
+
+    <control>
+      <onlydisplayif>#5</onlydisplayif>
+      <controltype>script</controltype>
+      <attribute>script</attribute>
+
+    </control>
+  </editor>
+
+  <editor>
+    <appliesto>(function)DestroyAllAudio</appliesto>
+    <display>Destroy all audio</display>
+    <category>[EditorScriptsOutputOutput]</category>
+    <create>DestroyAllAudio</create>
+    <add>Destroy all audio (NEW)</add>
+    <advanced />
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Destroy all audio</caption>
+    </control>
+  </editor>
+
+  <editor>
+    <appliesto>(function)DestroyAudio</appliesto>
+    <display>Destroy audio #0</display>
+    <category>[EditorScriptsOutputOutput]</category>
+    <create>DestroyAudio("")</create>
+    <add>Destroy audio (NEW)</add>
+    <advanced />
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Destroy audio with ID:</caption>
+    </control>
+    <control>
+      <controltype>textbox</controltype>
+      <attribute>0</attribute>
+    </control>
+  </editor>
+
+
+
+  <editor>
+    <appliesto>(function)AddVideo</appliesto>
+    <display>Add video: #0</display>
+    <category>[EditorScriptsOutputOutput]</category>
+    <create>AddVideo ("", false, false, "", true, false, false){}</create>
+    <add>Add video (NEW)</add>
+    <advanced />
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Add a video</caption>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>0</attribute>
+      <simple>filename</simple>
+      <simpleeditor>file</simpleeditor>
+      <source>*.mp4;*.ogv</source>
+      <filefiltername>Video Files</filefiltername>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>ID (Optional):</caption>
+      <breakbefore/>
+    </control>
+
+    <control>
+      <controltype>textbox</controltype>
+      <attribute>3</attribute>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Wait for video to finish playing</caption>
+      <breakbefore/>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>1</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>[EditorScriptsOutputLoop]</caption>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>2</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Show controls</caption>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>4</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Autoplay</caption>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>5</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Add a callback script</caption>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>6</attribute>
+      <simpleeditor>boolean</simpleeditor>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>
+        Script to run after video has finished  (Optional)
+
+        (You must set "Add a callback script" to yes for this script to run!)
+      </caption>
+      <breakbefore/>
+    </control>
+
+    <control>
+      <onlydisplayif>#5</onlydisplayif>
+      <controltype>script</controltype>
+      <attribute>script</attribute>
+
+    </control>
+
+  </editor>
+
+  <editor>
+    <appliesto>(function)DestroyAllVideo</appliesto>
+    <display>Destroy all video</display>
+    <category>[EditorScriptsOutputOutput]</category>
+    <create>DestroyAllVideo</create>
+    <add>Destroy all video (NEW)</add>
+    <advanced />
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Destroy all video</caption>
+    </control>
+  </editor>
+
+  <editor>
+    <appliesto>(function)DestroyVideo</appliesto>
+    <display>Destroy video #0</display>
+    <category>[EditorScriptsOutputOutput]</category>
+    <create>DestroyVideo("")</create>
+    <add>Destroy video (NEW)</add>
+    <advanced />
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Destroy video with ID:</caption>
+    </control>
+    <control>
+      <controltype>textbox</controltype>
+      <attribute>0</attribute>
+    </control>
+  </editor>
+  
+  <function name="HandleCommand" parameters="command, metadata">
+    <![CDATA[
+    handled = false
+    if (game.menucallback <> null) {
+      if (HandleMenuTextResponse(command)) {
+        handled = true
+      }
+      else {
+        if (game.menuallowcancel) {
+          ClearMenu
+        }
+        else {
+          handled = true
+        }
+      }
+    }
+    if (not handled) {
+      StartTurnOutputSection
+      if (StartsWith (command, "*")) {
+         // Modified by KV to bypass turn scripts and turn counts, and to print "Noted."
+        game.suppressturnscripts = true
+        msg ("")
+        msg (SafeXML (command))
+        msg("Noted.")
+	      // Added for Quest 5.8    - KV
+      	if (HasAttribute (game, "runturnscripts") or GetAttribute(game, "aslversion") = "580"){
+          // To handle v580 (this may be bad for v550)
+          FinishTurn 
+        }
+      }
+      else {    
+        shownlink = false
+        if (game.echocommand) {
+          if (metadata <> null and game.enablehyperlinks and game.echohyperlinks) {
+            foreach (key, metadata) {
+              if (EndsWith(command, key)) {
+                objectname = StringDictionaryItem(metadata, key)
+                object = GetObject(objectname)
+                if (object <> null) {
+                  msg ("")
+                  msg ("&gt; " + Left(command, LengthOf(command) - LengthOf(key)) + "{object:" + object.name + "}" )
+                  shownlink = true
+                }
+              }
+            }
+          }
+          if (not shownlink) {
+            msg ("")
+            OutputTextRaw ("&gt; " + SafeXML(command))
+          }
+        }
+        if (game.command_newline) {
+          msg ("")
+        }
+        game.pov.commandmetadata = metadata
+        if (game.multiplecommands){	
+		  command = Replace(command, "then", ".")
+          commands = Split(command, ".")
+          if (ListCount(commands) = 1) {
+            game.pov.commandqueue = null
+            HandleSingleCommand (Trim(command))
+          }
+          else {
+            game.pov.commandqueue = commands
+            HandleNextCommandQueueItem
+          }
+		    }
+        else {
+          game.pov.commandqueue = null
+          HandleSingleCommand (Trim(command))	
+        }		
+      }
+    }
+    ]]>
+  </function>
+  
+  <function name="ResolveNextName">
+    <![CDATA[
+    resolvedall = false
+    queuetype = TypeOf(game.pov, "currentcommandvarlistqueue")
+    if (queuetype = "stringlist") {
+      queuelength = ListCount(game.pov.currentcommandvarlistqueue)
+      if (queuelength > 0) {
+      
+        // Pop next variable off the queue
+        var = StringListItem(game.pov.currentcommandvarlistqueue, 0)
+        if (queuelength = 1) {
+          game.pov.currentcommandvarlistqueue = null
+        }
+        else {
+          newqueue = NewStringList()
+          for (i, 1, queuelength - 1) {
+            list add (newqueue, StringListItem(game.pov.currentcommandvarlistqueue, i))
+          }
+          game.pov.currentcommandvarlistqueue = newqueue
+        }
+        
+        // Resolve variable
+        value = StringDictionaryItem(game.pov.currentcommandvarlist, var)
+        
+        if (value <> "") {
+          result = null
+          resolvinglist = false
+          
+          // This is to resolve issue 626
+          if (StartsWith(var, "objectexit")) {
+            result = ResolveName(var, value, "exit")
+          }
+          if (result = null) {
+            if (StartsWith(var, "object")) {
+              if (GetBoolean(game.pov.currentcommandpattern, "allow_all")) {
+                scope = FilterByAttribute(GetScope("object", "", "object"), "scenery", false)
+                game.pov.currentcommandpendingobjectscope = ListExclude(scope, FilterByAttribute(scope, "not_all", true))
+                game.pov.currentcommandpendingvariable = var
+                ResolveNameList (value, "object")
+                resolvinglist = true
+              }
+              else if (HasScript(game.pov.currentcommandpattern, "multipleobjects")) {
+                game.pov.currentcommandpendingobjectlist = NewObjectList()
+                game.pov.currentcommandpendingvariable = var
+                do(game.pov.currentcommandpattern, "multipleobjects")
+                ResolveNameList(value, "object")
+                resolvinglist = true
+              }
+              else {
+                result = ResolveName(var, value, "object")
+              }
+            }
+            else if (StartsWith(var, "exit")) {
+              result = ResolveName(var, value, "exit")
+            }
+            else if (StartsWith(var, "text")) {
+              result = StringDictionaryItem(game.pov.currentcommandvarlist, var)
+            }
+            else {
+              error ("Unhandled command variable '" + var + "' - command variable names must begin with 'object', 'exit' or 'text'")
+            }
+          }
+        
+          // at this point, ResolveName has returned - either an object name, unresolved, or pending
+            
+          if (result = null) {
+            if ((not resolvinglist) and LengthOf(GetString(game.pov, "currentcommandpendingvariable")) = 0) {
+              UnresolvedCommand(value, var)
+            }
+          }
+          else {
+            AddToResolvedNames(var, result)
+          }
+        }
+        else {
+          ResolveNextName
+        }
+      }
+      else {
+        resolvedall = true
+      }
+    }
+    else if (queuetype = "null") {
+      resolvedall = true
+    }
+    else {
+      error ("Invalid queue type")
+    }
+    
+    if (resolvedall) {
+      // All the objects have been resolved, so now we can actually do the command
+      // TO DO: game.lastobjects should be game.pov.lastobjects
+      game.lastobjects = game.pov.currentcommandresolvedobjects
+      
+      if (not DictionaryContains(game.pov.currentcommandresolvedelements, "multiple")) {
+        dictionary add (game.pov.currentcommandresolvedelements, "multiple", false)
+      }
+      
+      if (not GetBoolean(game.pov.currentcommandpattern, "isundo")) {
+        if (LengthOf(game.pov.currentcommand) > 0) {
+          start transaction (game.pov.currentcommand)
+        }
+      }
+      if (not GetBoolean(game.pov.currentcommandpattern, "isoops")) {
+        // TO DO: game.unresolved* should be game.pov.unresolved*
+        game.unresolvedcommand = null
+        game.unresolvedcommandvarlist = null
+        game.unresolvedcommandkey = null
+      }
+      if (HasScript(game.pov.currentcommandpattern, "script")) {
+        // This is the bit that actually runs the commands
+        do (game.pov.currentcommandpattern, "script", game.pov.currentcommandresolvedelements)
+      }
+      //
+      //Setting game.runturnscripts to true to run turn scripts after ShowMenu , show menu, ask, or Ask.
+      //This works in conjuction with FinishTurn, which has also been modified as of Quest 5.8.
+      //- KV
+      if (HasAttribute (game, "runturnscripts") or GetAttribute(game, "aslversion") = "580" or GetBoolean(game, "multiplecommands")){
+        game.runturnscripts = true
+        FinishTurn
+      }
+      HandleNextCommandQueueItem
+    }
+    ]]>
+  </function>
+  
+  <function name="ResolveNameFromList" parameters="variable, value, objtype, scope, secondaryscope" type="object">
+    <![CDATA[
+    value = Trim(LCase(value))
+    fullmatches = NewObjectList()
+    partialmatches = NewObjectList()
+    
+    foreach (obj, scope) {
+      name = LCase(GetDisplayAlias(obj))
+      CompareNames (name, value, obj, fullmatches, partialmatches)
+      if (obj.alt <> null) {
+        foreach (altname, obj.alt) {
+          CompareNames (LCase(altname), value, obj, fullmatches, partialmatches)
+        }
+      }
+    }
+    
+    // allow referring to objects from the previous command by gender or article
+    
+    if (objtype = "object" and game.lastobjects <> null) {
+      foreach (obj, game.lastobjects) {
+        CompareNames (LCase(obj.article), value, obj, fullmatches, partialmatches)
+        CompareNames (LCase(obj.gender), value, obj, fullmatches, partialmatches)
+      }
+    }
+
+    // Also check the secondary scope, but only if we have not found anything yet
+    
+    if (ListCount(fullmatches) = 0 and ListCount(partialmatches) = 0 and not secondaryscope = null) {
+      foreach (obj, secondaryscope) {
+        name = LCase(GetDisplayAlias(obj))
+        CompareNames (name, value, obj, fullmatches, partialmatches)
+        if (obj.alt <> null) {
+          foreach (altname, obj.alt) {
+            CompareNames (LCase(altname), value, obj, fullmatches, partialmatches)
+          }
+        }
+      }
+    }    
+    
+    if (ListCount(fullmatches) = 1) {
+      return (ListItem(fullmatches, 0))
+    }
+    else if (ListCount(fullmatches) = 0 and ListCount(partialmatches) = 1) {
+      return (ListItem(partialmatches, 0))
+    }
+    else if (ListCount(fullmatches) + ListCount(partialmatches) = 0) {
+      return (null)
+    }
+    else {
+      // Added this line to resolve issue with new FinishTurn setup in 580
+      if (HasAttribute (game, "runturnscripts") or GetAttribute(game, "aslversion") = "580"){
+        game.disambiguating = true
+      }
+      game.disambiguating = true
+      candidates = ListCompact(ListCombine(fullmatches, partialmatches))
+      
+      if (LengthOf(variable) > 0) {
+        // single object command, so after showing the menu, add the object to game.pov.currentcommandresolvedelements
+        game.pov.currentcommandpendingvariable = variable
+      
+        ShowMenu(DynamicTemplate("DisambiguateMenu", value), candidates, true) {
+          varname = game.pov.currentcommandpendingvariable
+          game.pov.currentcommandpendingvariable = null
+          if (result <> null) {
+            AddToResolvedNames(varname, GetObject(result))
+          }
+        }
+      }
+      else {
+        // multi-object command, so after showing the menu, add the object to the list
+        
+        game.pov.currentcommandmultiobjectpending = true
+        
+        ShowMenu(DynamicTemplate("DisambiguateMenu", value), candidates, true) {
+          if (result <> null) {
+            list add (game.pov.currentcommandpendingobjectlist, GetObject(result))
+            ResolveNextNameListItem
+          }
+        }        
+      }
+      
+      return (null)
+    }
+    ]]>
+  </function>
+  
+  <function name="UnresolvedCommand" parameters="objectname, varname">
+    // TO DO: Update names below, we don't need these two variables
+    game.suppressturnscripts = true
+    unresolvedobject = objectname
+    unresolvedkey = varname
+    
+    if (HasString(game.pov.currentcommandpattern, "unresolved")) {
+      if (ListCount(game.pov.currentcommandvarlist) > 1) {
+        msg (game.pov.currentcommandpattern.unresolved + " (" + unresolvedobject + ")")
+      }
+      else {
+        msg (game.pov.currentcommandpattern.unresolved)
+      }
+    }
+    else {
+      if (ListCount(game.pov.currentcommandvarlist) > 1) {
+        msg (Template("UnresolvedObject") + " (" + unresolvedobject + ")")
+      }
+      else {
+        msg (Template("UnresolvedObject"))
+      }
+    }
+    game.unresolvedcommand = game.pov.currentcommandpattern
+    game.unresolvedcommandvarlist = game.pov.currentcommandvarlist
+    game.unresolvedcommandkey = unresolvedkey
+  </function>
+  
+  <!--
+  Gets a list of objects to try to match against. Exactly where that list comes from can be
+  determined by an attribute on the command, among other ways.
+  -->
+  <function name="GetScope" parameters="variable, value, objtype" type="objectlist">
+    <![CDATA[
+    items = NewObjectList()
+    if (HasString(game.pov.currentcommandpattern, "scope")) {
+      scoping = GetScoping(game.pov.currentcommandpattern.scope, variable)
+      foreach (partscope, Split(scoping, ";")) {
+        switch (partscope) {
+          case ("inventory") {
+            items = ListCombine(items, ScopeInventory())
+          }
+          case ("notheld", "room") {
+            items = ListCombine(items, ScopeVisibleNotHeld()) - game.pov
+          }
+          case ("all") {
+            items = ListCombine(items, ScopeVisible()) - game.pov
+          }
+          case ("container") {
+            items = ListCombine(items, FilterByType(ScopeVisible(), "container_base"))
+          }
+          case ("contents") {
+            foreach (cont, FilterByType(ScopeVisible(), "container_base")) {
+              items = ListCombine(items, GetAllChildObjects(cont))
+            }
+          }
+          case ("world") {
+            items = ListCombine(items, AllObjects())
+          }
+          case ("none") {
+          }
+          default {
+            // The command's "scope" can be the name of an object, or an attribute of the player's parent
+            obj = GetObject(partscope)
+            if (not obj = null) {
+              items = ListCombine(items, GetAllChildObjects(obj))
+            }
+            if (HasObject(game.pov.parent, partscope)) {
+              obj = GetAttribute(game.pov.parent, partscope)
+              items = ListCombine(items, GetAllChildObjects(obj))
+            }
+            else if (HasAttribute(game.pov.parent, partscope)) {
+              attr = GetAttribute(game.pov.parent, partscope)
+              if (TypeOf(attr) = "objectlist") {
+                items = ListCombine (items, attr)
+              }
+            }
+            else if (HasAttribute(game.pov, partscope)) {
+              attr = GetAttribute(game.pov, partscope)
+              if (TypeOf(attr) = "objectlist") {
+                items = ListCombine (items, attr)
+              }
+            }
+          }
+        }
+      }
+    }
+    else if (objtype = "object") {
+      items = ScopeVisible()
+    }
+    else if (objtype = "exit") {
+      items = ScopeExits()
+    }
+    else {
+      // Should never get here!
+      // CHANGE: Should still never get here, but we don't return null.
+      // If we get here somehow, trust user's scripts to define scope.
+    }
+    items = ObjectListCompact(items)
+    // CHANGE: Run the script 'changecommandscope' (if it exists) for the game object, the player's room and
+    // containing rooms, and the current command. This allows the user to change command scope on a per-location
+    // or per-command basis
+    // This script gets an "items" list parameter, like `scopebackdrop` script does; but also has parameters
+    // 'command', 'variable', and 'objtype', so the user can adjust their script to give different item lists
+    // for different commands, or different variables within a command.
+    objectswithscripts = NewObjectList()
+    if (HasScript(game.pov.currentcommandpattern, "changecommandscope")) {
+      list add (objectswithscripts, game.pov.currentcommandpattern)
+    }
+    room = game.pov
+    while (not room = null) {
+      if (HasScript(room, "changecommandscope")) {
+        list add (objectswithscripts, room)
+      }
+      room = room.parent
+    }
+    if (HasScript(game, "changecommandscope")) {
+      list add (objectswithscripts, game)
+    }
+    if (ListCount(objectswithscripts) > 0) {
+      params = NewDictionary()
+      dictionary add (params, "items", items)
+      dictionary add (params, "command", game.pov.currentcommandpattern)
+      dictionary add (params, "variable", variable)
+      dictionary add (params, "objtype", objtype)
+      dictionary add (params, "matched", game.pov.currentcommandresolvedelements)
+      foreach (o, objectswithscripts) {
+        do (o, "changecommandscope", params)
+      }
+      items = ObjectListCompact(items)
+    }
+    return (items)
+  ]]>
+  </function>
+
+
+  <!--
+  Extracts from the scopestring the bit relevant for this variable.
+  From "object1=nothing|object2=sometext|object3=blank", "object2" is will return "sometext"
+  Returns the string as is if there is no |.
+  Returns "all" if it cannot work out what to do.
+  -->  
+  <function name="GetScoping" parameters="scopestring, variable" type="string">
+    lst = Split(scopestring, "|")
+    if (ListCount(lst) = 1) {
+      return (scopestring)
+    }
+    foreach (s, lst) {
+      if (StartsWith(s, variable + "=")) {
+        return (Mid(s, LengthOf(variable) + 2))
+      }
+    }
+    return ("all")
+  </function>
+  
+  <function name="ScopeReachableInventory" type="objectlist">
+    result = NewObjectList()
+    foreach (obj, GetAllChildObjects(game.pov)) {
+      if (ContainsReachable(game.pov, obj) and not obj.scenery and obj.visible) {
+        list add(result, obj)
+      }
+    }
+    return (result)
+  </function>
+  
+  <function name="UpdateObjectLinks">
+    if (game.enablehyperlinks) {
+    data = NewStringDictionary()
+    foreach (object, ScopeVisible()) {
+    dictionary add (data, object.name, Join(GetDisplayVerbs(object), "/"))
+    }
+    UpdateContentsInLists
+    JS.updateObjectLinks(data)
+    exits = NewStringList()
+    foreach (exit, ScopeExits()) {
+    list add (exits, exit.name)
+    }
+    JS.updateExitLinks(exits)
+    commands = NewStringList()
+    foreach (cmd, ScopeCommands()) {
+    list add (commands, cmd.name)
+    }
+    JS.updateCommandLinks(commands)
+    }
+  </function>
+  
+    <function name="Log" parameters="text">
+    <![CDATA[
+    request (Log, text)
+    // Replacing double quotes with 2 single quotes
+    text = Replace(text, "\"", "''")
+    // Changing syntax from single quotes to escaped double quotes to allow single quotes in log entries
+    if (not GetBoolean(game, "nohtmllog")){
+      JS.eval("if(typeof(addLogEntry)===\"function\"){ addLogEntry(\""+text+"\"); };")
+    }
+    JS.eval("if(!webPlayer && typeof(WriteToLog)===\"function\"){var s = \""+text+"\";WriteToLog(s);}")
+    ]]>
+  </function>
+  
+<!-- KVMOD for Oxford Comma -->
+    <function name="FormatList" parameters="list, joiner, lastjoiner, nothing" type="string">
+    <![CDATA[
+    if (ListCount (list) = 0) {
+      return (nothing)
+    }
+    else {
+      result = ""
+      count = 0
+      listLength = ListCount(list)
+      foreach (item, list) {
+        if (TypeOf(item) = "object") {
+          result = result + GetDisplayName(item)
+        }
+        else {
+          result = result + item
+        }
+        count = count + 1
+        if (count = listLength - 1) {
+          if (not IsRegexMatch("^\\W", lastjoiner)) result = result + " "
+          if(GetBoolean (game,"oxford_comma")) {
+            result = result + ", " + lastjoiner + " "
+          }
+          else{
+            result = result + " " + lastjoiner + " "
+          }
+        }
+        else if (count < listLength) {
+          result = result + joiner + " "
+        }
+      }
+      return (Trim (result))
+    }
+  ]]>
+  </function>
+  
+  <function name="GetDisplayNameLink" parameters="obj, type" type="string">
+    <![CDATA[
+    verbs = GetDisplayVerbs(obj)
+    if (verbs <> null) {
+      verbCount = ListCount(verbs)
+    }
+    else {
+      verbCount = 0
+    }
+    if (type = "exit" and verbCount = 1) {
+      if (not game.enablehyperlinks) {
+        result = GetDisplayAlias(obj)
+      }
+      else {
+        result = "{exit:" + obj.name + "}"
+      }
+    }
+    else if (type = "") {
+      result = GetDisplayAlias(obj)
+      if (not HasAttribute(game,"lastobjects")) {
+        game.lastobjects = NewObjectList()
+      }
+      if (not obj = game.pov.parent) {
+        list add (game.lastobjects, obj)
+      }
+    }
+    else {
+      result = "{object:" + obj.name + "}"
+      if (not HasAttribute(game,"lastobjects")) {
+        game.lastobjects = NewObjectList()
+      }
+      list add (game.lastobjects, obj)
+    }
+    if (not GetBoolean(obj, "usedefaultprefix")) {
+      if (obj.prefix = null) {
+        prefix = ""
+      }
+      else {
+        prefix = obj.prefix
+      }
+    }
+    else if (type = "exit") {
+      prefix = ""
+    }
+    else {
+      prefix = GetDefaultPrefix(obj)
+    }
+    if (LengthOf(prefix) > 0) {
+      prefix = prefix + " "
+    }
+    result = prefix + result
+    if (not GetBoolean(obj, "usedefaultprefix") and HasString(obj, "suffix")) {
+      if (LengthOf(obj.suffix) > 0) {
+        result = result + " " + obj.suffix
+      }
+    }
+    return (result)
+  ]]>
+  </function>
+
+  <function name="ObjectLink" parameters="obj" type="string">
+    game.lastobjects = NewObjectList()
+    list add (game.lastobjects, obj)
+    return ("{object:" + obj.name + "}")
+  </function>
+  
+  
+  <command name="lookin">
+    <pattern type="string"><![CDATA[^(look|examine|ex|x) (in|inside (of|)) (?<object>.+)$]]></pattern>
+    <script><![CDATA[
+      if (GetBoolean(object, "container")) {
+        if (not DoesInherit (object, "surface")) {
+          if (object.isopen) {
+            if (ListCount(GetDirectChildren(object))>0) {
+              ListObjectContents (object)
+            }
+            else {
+              msg (CapFirst(object.article) + " " + Conjugate(object, "appear") + " to be empty.")
+            }
+          }
+          else {
+            msg (DynamicTemplate("ObjectNotOpen", object))
+          }
+        }
+        else {
+          msg (CapFirst(object.article) + " " + Conjugate(object, "do") + " not work that way.")
+        }
+      }
+      else {
+        msg (CapFirst(object.article) + " " + Conjugate(object, "do") + " not work that way.")
+      }
+    ]]></script>
+    <scope type="string"></scope>
+  </command>
+  <command name="lookon">
+    <pattern type="string"><![CDATA[^(look|examine|ex|x) on( top( of|)|) (?<object>.+)$]]></pattern>
+    <script><![CDATA[
+      if (DoesInherit (object, "surface")) {
+        if (ListCount(GetDirectChildren(object))>0) {
+          ListObjectContents (object)
+        }
+        else {
+          msg (CapFirst(object.article) + " " + Conjugate(object, "appear") + " to be bare.")
+        }
+      }
+      else {
+        msg (CapFirst(object.article) + " " + Conjugate(object, "do") + " not work that way.")
+      }
+    ]]></script>
+    <scope type="string"></scope>
+  </command>
+  
+
+  
+  
+  
+  
+  <!--
+  If you are viewing this on GitHub and want to download it, right click on the RAW button
+  just above, and select "Save link as..."
+  -->
+
+
+  <!--
+  NpcLib v1.5
+  
+  Documentation here:
+  http://docs.textadventures.co.uk/quest/independent_npcs.html
+  
+  Quest version: 5.7
+  Written by: The Pixie, 2017
+  
+  
+  As of version 1.1:
+  This uses functions from PathLib by Jay Nabonne to give the GoTo command
+  http://docs.textadventures.co.uk/quest/libraries/path_library.html
+
+  
+  As of version 1.2
+  If you use ConvLib, an NPC will be automatically paused, but this has to be after ConvLib!
+  
+  You can add an "npc_using" script to an exit to have that run instead of the standard
+  phrase for moving. It has access to a local variable "npc". 
+  It will need to check for itself if the player is present to see it happened
+  (or use PrintIfHere).
+  For standard moves, you can now override the templates below, or the NpcLeaving function
+  (which   tells the player which way the NPC was heading).
+  
+  If game.npcdebug is set to true, you will see debugging info in blue; this will tell you
+  what NPCs are dong and planning to do, which should help you work out why they are not behaving.
+  
+  There are also groups now; NPCs can join groups and act together whilst in the group.
+  Discussion here
+  http://textadventures.co.uk/forum/samples/topic/1gpwpfattuyocvlg1sievq/controlling-npcs
+  
+  As of version 1.3
+  "Enter" and "leave" are conjugated so groups will "enter", an individual "enters"
+  
+  As of version 1.4 (with thanks to KV)
+  Checks there is an "actions" attribute
+  Various actions use CapFirst to capitalise the start of the sentence
+  NPC entering message indicates the direction, and uses functions not templates
+  New Follow option (and NpcFollow function). You can use the "followidle"
+  attribute to have the NPC do something whilst the player is not moving
+  
+  As of version 1.5
+  This is now useable with ClockLib 3.1 (but not 3.0 - check which you have)
+  Note that you MUST use SetTime to set the initial time, as this will disable the
+  standard NpcLib turnscript.
+  You also need to use PrintIfHere in any NPC action or event that you want WAIT to stop for
+  (or set game.clockevent = true).
+  -->
+
+  
+  
+  <type name="NpcType">
+   <takeaturn type="script"><![CDATA[
+      // Checks to see if "actions" has been set up (meaning at least on action has been added) to avoid errors.
+      if(HasAttribute(this, "actions")){
+        if (ListCount(this.actions) > 0){
+          PrintIfDebug (this, "Outstanding actions: " + Join(this.actions, ","))
+        }
+        if (ListCount(this.actions) > 0 and not HasAttribute(this, "group")) {
+          s = StringListItem(this.actions, 0)
+          PrintIfDebug (this, "Doing: " + s)
+          if (NpcAct (this, s)) {
+            list remove (this.actions, s)
+            PrintIfDebug (this, "Deleted")
+          }
+        }
+      }
+    ]]></takeaturn>
+  </type>
+
+  
+  <type name="GroupType">
+    <inherit name="NpcType" />
+    <resetalias type="script"><![CDATA[
+      this.alias = FormatList (GroupMembers(this), ", ", " and ", "no one")
+    ]]></resetalias>
+    <visible type="boolean">false</visible>
+  </type>
+  
+  
+  
+  <turnscript name="NpcTurnScript">
+    <enabled/>
+    <script>
+      foreach (o, AllObjects()) {
+        if (HasScript(o, "takeaturn")) {
+          msg("Doing " + o.name)
+          if (GetBoolean(o, "paused")) {
+            o.paused = false
+          }
+          else {
+            do (o, "takeaturn")
+          }
+        }
+      }
+    </script>
+  </turnscript>
+
+  
+  
+  <function name="PrintIfDebug" parameters="o, s"><![CDATA[
+    if (GetBoolean(game, "npcdebug")) {
+      msg ("{color:blue:{i:" + o.name + "} " + s + "}")
+    }
+  ]]></function>
+
+  
+  
+  <function name="PrintIfHere" parameters="room, s">
+    if (game.pov.parent = room) {
+      msg (s)
+      if (not GetAttribute(game, "clock") = null) {
+        game.clockevent = true
+      }
+    }
+  </function>
+  
+
+  <!--
+  Overrides function in ConvLib so NPCs get paused when the player talks to them.
+  -->
+  <function name="AfterTopicEvent">
+    Pause (game.conversationalist)
+  </function>
+  
+  
+  
+  <!--
+  Gets a list of members of the given grpup
+  -->
+  <function name="GroupMembers" parameters="group" type="objectlist">
+    return (FilterByAttribute(AllObjects(), "group", group))
+  </function>
+
+
+  
+  <!--
+  Gets a single member of a group (or the NPC if this is an NPC).
+  Used for when we want one member of the group to open the door or whatever.
+  -->
+  <function name="Member" parameters="group" type="object">
+    if (DoesInherit(group, "GroupType")) {
+      return (PickOneObject(FilterByAttribute(AllObjects(), "group", group)))
+    }
+    else {
+      return (group)
+    }
+  </function>
+
+  <function name="NpcStopFollowing" parameters="npc">
+    if(HasAttribute(npc, "actions")){
+      if (ListCount(npc.actions) > 0){
+        s = StringListItem(npc.actions, 0)
+        if (StartsWith(s, "Follow:")) {
+          list remove (npc.actions, s)
+          PrintIfDebug (npc, "Stopped following")
+        }
+      }
+    }
+  </function>
+
+  
+  <!--
+  Pauses the NPC or the group she belongs to for one turn.
+  -->
+  <function name="Pause" parameters="npc">
+    if (HasAttribute(npc, "group")) {
+      npc.group.paused = true
+    }
+    else {
+      npc.paused = true
+    }
+  </function>
+  
+  
+  <!--
+  Heart of the NPC system; NPC will do one action.
+  -->
+  <function name="NpcAct" parameters="npc, s" type="boolean">
+    ary = Split(s, ":")
+    if (ListCount(ary) = 1) {
+      PrintIfHere (npc.parent, s)
+      f = true
+    }
+    else {
+      game.currentobj = GetObject (StringListItem(ary, 1))
+      if (game.currentobj = null) {
+        error ("Failed to find object: " + StringListItem(ary, 1))
+      }
+      game.currentnpc = npc
+      f = Eval("Npc" + StringListItem(ary, 0) + "(game.currentnpc, game.currentobj)")
+    }
+    return (f)
+  </function>
+
+  <function name="NpcMove" parameters="npc, obj" type="boolean">
+    oldroom = npc.parent
+    npc.parent = obj
+    if (DoesInherit(npc, "GroupType")) {
+      foreach (o, GroupMembers(npc)) {
+        o.parent = obj
+      }
+    }
+    if (not oldroom = npc.parent) {
+      d = NewDictionary()
+      dictionary add (d, "npc", npc)
+      // leaving
+      if (oldroom = player.parent) {
+        exitname = GetExitByLink (oldroom, npc.parent)
+        if (not exitname = null) {
+          exit = GetObject(exitname)
+          if (HasScript(exit, "npc_using")) {
+            do (exit, "npc_using", d)
+          }
+          else {
+            NpcLeaving (npc, exit)
+          }
+        }
+      }
+      // entering
+      if (npc.parent = player.parent) {
+        exitname = GetExitByLink (npc.parent, oldroom)
+        if (not exitname = null) {
+          exit = GetObject(exitname)
+          if (HasScript(exit, "npc_entering_by")) {
+            do (exit, "npc_entering_by", d)
+          }
+          else {
+            NpcEntering (npc, exit)
+          }
+        }
+      }
+    }
+    return (true)
+  </function>
+  
+  <!--
+  Used by NpcMove to describe the NPC leaving the current room, giving the direction headed.
+  -->
+  <function name="NpcLeaving" parameters="npc, exit" type="boolean">
+    msg(CapFirst(GetDisplayName(npc)) + " " + Conjugate(npc, "leave") + ", heading " + NiceDirection(exit, false) + ".")
+  </function>
+  
+  <!--
+  Used by NpcMove to describe the NPC leaving the current room, giving the direction headed.
+  -->
+  <function name="NpcEntering" parameters="npc, exit" type="boolean">
+    msg(CapFirst(GetDisplayName(npc)) + " " + Conjugate(npc, "enter") + " from " + NiceDirection(exit, true) + ".")
+  </function>
+  
+  <function name="NiceDirection" parameters="exit, addthe" type="string">
+    switch (exit.alias) {
+      case ("in") { s = "inside" }
+      case ("out") { s = "outside" }
+      case ("up") { s = "above" }
+      case ("down") { s = "below" }
+      default {
+        if (addthe) {
+          s = "the " + exit.alias
+        }
+        else {
+          s = exit.alias
+        }
+      }
+    }
+    return (s)
+  </function>
+  
+  <function name="NpcWait" parameters="npc, obj" type="boolean">
+    if (obj = game.pov or HasScript(obj, "takeaturn")) {
+      return (npc.parent = obj.parent)
+    }
+    else if (HasBoolean(obj, "locked")) {
+      return (not obj.locked)
+    }
+    else {
+      return (npc = obj.parent)
+    }
+  </function>
+
+  <function name="NpcSearch" parameters="npc, obj" type="boolean">
+    exit = PickOneUnlockedExit (npc.parent)
+    oldroom = npc.parent
+    NpcMove(npc, exit.to)
+    return (obj.parent = npc.parent)
+  </function>
+
+
+  <function name="NpcGet" parameters="npc, obj" type="boolean">
+    obj.parent = npc
+    PrintIfHere (npc.parent, CapFirst(GetDisplayName(npc)) + " picks up the " + GetDisplayAlias(obj) + ".")
+    return (true)
+  </function>
+
+  <function name="NpcDrop" parameters="npc, obj" type="boolean">
+    obj.parent = npc.parent
+    PrintIfHere (npc.parent, CapFirst(GetDisplayName(npc)) + " drops the " + GetDisplayAlias(obj) + ".")
+    return (true)
+  </function>
+
+  <function name="NpcGive" parameters="npc, obj" type="boolean">
+    obj.parent = game.pov
+    PrintIfHere (npc.parent, CapFirst(GetDisplayName(Member(npc))) + " gives you the " + GetDisplayAlias(obj) + ".")
+    return (true)
+  </function>
+
+  <function name="NpcLock" parameters="npc, obj" type="boolean">
+    if (not obj.locked) {
+      obj.locked = true
+      PrintIfHere (npc.parent, CapFirst(GetDisplayName(Member(npc))) + " locks the " + GetDisplayAlias(obj) + ".")
+    }
+    return (true)
+  </function>
+
+  <function name="NpcUnlock" parameters="npc, obj" type="boolean">
+    if (obj.locked) {
+      obj.locked = false
+      PrintIfHere (npc.parent, CapFirst(GetDisplayName(Member(npc))) + " unlocks the " + GetDisplayAlias(obj) + ".")
+    }
+    return (true)
+  </function>
+
+  <function name="NpcOpen" parameters="npc, obj" type="boolean">
+    if (not obj.isopen) {
+      obj.isopen = true
+      PrintIfHere (npc.parent, CapFirst(GetDisplayName(Member(npc))) + " opens the " + GetDisplayAlias(obj) + ".")
+    }
+    return (true)
+  </function>
+
+  <function name="NpcClose" parameters="npc, obj" type="boolean">
+    if (obj.isopen) {
+      obj.isopen = false
+      PrintIfHere (npc.parent, CapFirst(GetDisplayName(Member(npc))) + " closes the " + GetDisplayAlias(obj) + ".")
+    }
+    return (true)
+  </function>
+
+  <function name="NpcWear" parameters="npc, obj" type="boolean">
+    if (not obj.worn) {
+      obj.worn = true
+      obj.parent = npc
+      PrintIfHere (npc.parent, CapFirst(GetDisplayName(npc)) + " puts on the " + GetDisplayAlias(obj) + ".")
+    }
+    return (true)
+  </function>
+
+  <function name="NpcRemove" parameters="npc, obj" type="boolean">
+    if (obj.worn) {
+      obj.worn = false
+      obj.parent = npc
+      PrintIfHere (npc.parent, CapFirst(GetDisplayName(npc)) + " takes off the " + GetDisplayAlias(obj) + ".")
+    }
+    return (true)
+  </function>
+
+  <function name="NpcJoin" parameters="npc, obj" type="boolean">
+    return (NpcInclude(obj, npc))
+  </function>
+
+  <function name="NpcPause" parameters="npc, obj" type="boolean">
+    return (true)
+  </function>
+
+  <function name="NpcFollow" parameters="npc, obj" type="boolean">
+    if (not npc.parent = obj.parent) {
+      NpcGoTo(npc, obj.parent)
+    }
+    else if (HasAttribute(npc, "followidle")) {
+      msg(PickOneString(npc.followidle))
+    }
+    return (false)
+  </function>
+
+  <function name="NpcGoToParent" parameters="npc, obj" type="boolean">
+    return (NpcGoTo(npc, obj.parent))
+  </function>
+
+  <function name="NpcGoTo" parameters="npc, obj" type="boolean">
+    l = PathLib_GetPathExt(npc.parent, obj, AllExits(), -1)
+    if (ListCount(l) = 0) {
+      return (true)
+    }
+    exit = ObjectListItem(l, 0)
+    NpcMove (npc, exit.to)
+    return (ListCount(l) = 1)
+  </function>
+
+  <function name="NpcScript" parameters="npc, obj" type="boolean">
+    npc.deletefromlist = true
+    if (HasScript (npc, "npcscript")) {
+      d = NewDictionary()
+      dictionary add (d, "item", obj)
+      do (npc, "npcscript", d)
+    }
+    return (npc.deletefromlist)
+  </function>
+  
+  
+  
+  <!--
+  These five are for groups only.
+  -->
+  <function name="NpcWaitFor" parameters="npc, obj" type="boolean">
+    if (not DoesInherit(npc, "GroupType")) error (npc.name + " is not a group!")
+    return (obj.group = npc)
+  </function>
+
+  <function name="NpcCount" parameters="npc, obj" type="boolean">
+    if (not DoesInherit(npc, "GroupType")) error (npc.name + " is not a group!")
+    return (ListCount(GroupMembers(npc)) = obj.count)
+  </function>
+
+  <function name="NpcInclude" parameters="npc, obj" type="boolean">
+    if (not DoesInherit(npc, "GroupType")) error (npc.name + " is not a group!")
+    obj.group = npc
+    do(npc, "resetalias")
+    npc.parent = obj.parent
+    return (true)
+  </function>
+
+  <function name="NpcExclude" parameters="npc, obj" type="boolean">
+    if (not DoesInherit(npc, "GroupType")) error (npc.name + " is not a group!")
+    obj.group = null
+    do(npc, "resetalias")
+    return (true)
+  </function>
+
+  <function name="NpcDisband" parameters="npc, obj" type="boolean">
+    if (not DoesInherit(npc, "GroupType")) error (npc.name + " is not a group!")
+    foreach (member, GroupMembers(npc)) {
+      member.group = null
+    }
+    do(npc, "resetalias")
+    return (true)
+  </function>
+  
+  
+  
+  
+
+
+  <!--
+  Path-finding.
+  -->
+  
+  <!-- Find a path from start to end using a set of exits and maxlength passed. -->
+  <function name="PathLib_GetPathExt" parameters="start, end, exits, maxlength" type="objectlist">
+    <![CDATA[
+    // From PathLib by Jay Nabonne
+    //msg("GetPathExt from " + start + " to " + end)
+    // It is more efficient to mark the rooms rather than track them in lists.
+    if (not HasInt(game, "pathID")) {
+      game.pathID = 0
+    }
+    // Bump the path ID for this path. This saves us from having to unmark all previously marked rooms.
+    game.pathID = game.pathID + 1
+
+    path = null
+    current = NewList()
+    entry = _PathLib_AddEntry(current, start)
+    dictionary add(entry, "path", NewObjectList())
+    length = 0
+    iterations = 0
+  	while (ListCount(current) <> 0 and path = null and (maxlength = -1 or length <= maxlength)) {
+      iterations = iterations + 1
+      //msg("iterations = " + iterations)
+  		entry = current[0]
+  		list remove(current, entry)
+      room = entry["room"]
+      //msg("room = " + room.name)
+      room.pathlib_visited = game.pathID
+      //msg("entry=" + entry)
+      if (room = end) {
+        path = entry["path"]
+        //msg("path=" + path)
+      } else {
+        foreach (exit, exits) {
+          toRoom = exit.to
+          //msg("toRoom = " + toRoom)
+          if (toRoom <> null) {
+            if (exit.parent = room and not GetBoolean(exit, "excludeFromPaths")) {
+              // This is a room to be investigated.
+              if (GetInt(toRoom, "pathlib_current") <> game.pathID and GetInt(toRoom, "pathlib_visited") <> game.pathID) {
+                // We have not touched this room yet. Add its exit to the list.
+                newEntry = _PathLib_AddEntry(current, toRoom)
+                // Assign to an object attribute to force a copy.
+                game.PathLib_pathtemp = entry["path"]
+                list add(game.PathLib_pathtemp, exit)
+                dictionary add(newEntry, "path", game.PathLib_pathtemp)
+                game.PathLib_pathtemp = null
+                //msg("Added")
+              }
+            }
+          }
+        }
+      }
+      length = ListCount(entry["path"])
+  	}
+    //msg("iterations = " + iterations + ", path count = " + ListCount(path))
+  	return (path)
+    ]]>
+  </function>
+
+  <!-- Add a room entry to the list. -->
+  <function name="_PathLib_AddEntry" parameters="list, room" type="dictionary">
+    // From PathLib by Jay Nabonne
+    <!-- msg ("Add entry: " + room.name + "(length:" + ListCount(list) + ")") -->
+    entry = NewDictionary()
+    dictionary add(entry, "room", room)
+    list add(list, entry)
+    room.pathlib_current = game.pathID
+    return (entry)
+  </function>
+  
+  
+  
+  
+  
+  <!-- Interface -->
+  <tab>
+    <parent>_ObjectEditor</parent>
+    <caption>NPCs</caption>
+    <mustnotinherit>editor_room; defaultplayer</mustnotinherit>
+
+    <control>
+      <controltype>dropdowntypes</controltype>
+      <caption>Type</caption>
+      <types>*=None; NpcType=NPC; GroupType=Group</types>
+      <width>150</width>
+    </control>
+    
+    <control>
+     <caption>List of actions to perform</caption>
+      <controltype>list</controltype>
+      <attribute>actions</attribute>
+      <width>200</width>
+      <mustinherit>NpcType</mustinherit>
+      <editprompt>Action (eg Move:kitchen, or just text)</editprompt>
+    </control>
+
+    <control>
+      <controltype>title</controltype>
+      <caption>Available actions:</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+      
+    <control>
+      <controltype>label</controltype>
+      <caption>Move: NPC will move directly to the indicated room</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+      
+    <control>
+      <controltype>label</controltype>
+      <caption>GoTo: NPC will go to the specified location, one turn per room. Use GoToParent to have the NPC navigate to the same room as an item or another NPC.</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+      
+    <control>
+      <controltype>label</controltype>
+      <caption>Get/Drop/Give: NPC will pick up/drop/give to the player the indicated item (whether it is there or not)</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+      
+    <control>
+      <controltype>label</controltype>
+      <caption>Lock/Unlock/Open/Close/Wear/Remove: NPC will lock/unlock/open/close/wear/remove the indicated item (whether it is there or not)</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+      
+    <control>
+      <controltype>label</controltype>
+      <caption>Search: NPC will move via a random exit, and will continue to do so until in the same room as the indicated item</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Wait: NPC will wait, and will continue to do so until the player or other NPC is the same room if the indicated item is the player or an NPC, or the indicated item is unlocked if it has a "locked" attribute, or until given the indicated item otherwise.</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+      
+    <control>
+      <controltype>label</controltype>
+      <caption>Pause: NPC does nothing for one turn.</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+      
+    <control>
+      <controltype>label</controltype>
+      <caption>Script: Runs the NPC's "npcscript" script. If this sets the NPC's "deletefromlist" attribute to false, then this will run again next turn.</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+      
+    <control>
+      <controltype>label</controltype>
+      <caption>You can add your own verbs; add a new function called "Npc", followed by the verb, have it return a Boolean, and take two attributes, the NPC and the item.</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+      
+    <control>
+      <controltype>title</controltype>
+      <caption>Script</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+      
+    <control>
+      <controltype>script</controltype>
+      <caption>NPC script (run with NpcScript)</caption>
+      <attribute>npcscript</attribute>
+      <width>200</width>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+    
+    <control>
+      <controltype>label</controltype>
+      <caption>Set this.deletefromlist to false to have the script run again next turn.</caption>
+      <mustinherit>NpcType</mustinherit>
+    </control>
+      
+  </tab>
+  
+    <dynamictemplate name="ObjectDoesNotContain">CapFirst(GetDisplayName(object1)) + " " + Conjugate(object1, "do") + " not contain " + GetDisplayAlias(object2) + "."</dynamictemplate>
+  <editor>
+    <appliesto>(function)FinishGame()</appliesto>
+    <display>Show Game Over Menu</display>
+    <category>[EditorScriptsGameStateGameState]</category>
+    <add>Show Game Over Menu</add>
+    <create>FinishGame()</create>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Show Game Over Menu</caption>
+    </control>
+  </editor>
+  
+    <editor>
+    <appliesto>(function)MovePlayer</appliesto>
+    <display>Move game.pov to #0</display>
+    <category>Objects</category>
+    <create>MovePlayer ()</create>
+    <add>Move player to</add>
+
+
+    <control>
+      <controltype>label</controltype>
+      <caption>Move Player</caption>
+    </control>
+
+    <control>
+      <controltype>expression</controltype>
+      <attribute>0</attribute>
+      <simple>object</simple>
+      <simpleeditor>objects</simpleeditor>
+    </control>
+  </editor>
+  
+  
+  <verb name="feel">
+    <pattern>feel;touch</pattern>
+    <property>feel</property>
+    <defaulttext>That probably wouldn't help anything.</defaulttext>
+  </verb>
+  
+  
+  <command name="wave">
+    <pattern>wave</pattern>
+    <script>
+      msg ("You wave.")
+    </script>
+  </command>
+  <command name="waveat">
+    <pattern type="string"><![CDATA[^wave (at |to |)(?<object>.+)$]]></pattern>
+    <script>
+      msg ("You wave at "+GetDisplayName(object)+".")
+    </script>
+  </command>
+  
+  <command name="toggle_sidenav_menu">
+    <pattern>menu</pattern>
+    <script>
+      JS.eval ("if ($('#mySidenav').width() != '0') { closeNav(); addTextAndScroll('Menu closed.'); } else { openNav(); addTextAndScroll('Menu opened.');}")
+    </script>
+  </command>
+  <function name="AddSidenavCmdLink" parameters="cmd"><![CDATA[
+    JS.eval ("$('#mySidenav').append('<a href=\"#\" class=\"sidenav-cmdlink\" onclick=\"navCmdClick($(this).html())\">"+cmd+"</a><br/>');")
+  ]]></function>
+  <function name="AddSidenavContactLink"><![CDATA[
+    JS.eval ("$('#mySidenav').append('<a href=\"mailto:"+game.contactaddress+"?subject="+game.gamename+"\">Contact</a><br/>');")
+  ]]></function>
+
+  <function name="CreateSidenav"><![CDATA[
+    // Setup navCmdClick() function to handle sideNav command link clicks
+    JS.eval ("function navCmdClick(cmd){addText('<br/>>'+cmd+'<br/>');ASLEvent('HandleSingleCommand', cmd);scrollToEnd();}")
+    // Add the CSS
+    JS.eval ("var sidenavStyle = \"<style> .sidenav  {  height: 100%;    width: 0;    position: fixed;  transition: 0.5s;  z-index: 999;    top: 0;    right: 0;    background-color: #111;    overflow-x: hidden;    padding-top: 60px;   } .sidenav a {   padding: 8px 8px 8px 32px;    text-decoration: none;  transition: 0.5s;  font-size: 25px;    color: #818181;    display: block;   } .sidenav a:hover {   color: #f1f1f1;  } .sidenav .closebtn {   position: absolute;    top: 0;    right: 25px;    font-size: 36px;    margin-left: 50px; }#sidenav-open{top:25px;}</style>\";$('body').append(sidenavStyle);")
+    // Add the sidenav element
+    JS.eval ("var sidenavDiv = \"<div id='mySidenav' class='sidenav'><br/>    <a href='#' class='closebtn' onclick='closeNav();'>&times;</a> <center><span id='map-holder' /></center></div><span id='sidenav-open' style='font-size:30px;cursor:pointer;top:0;position:fixed;right:0;top:0' onclick='openNav()'>&#9776;</span>'\";$('body').append(sidenavDiv);")
+    // Move it to the body element
+    JS.eval ("$('body').append($('#mySidenav'));")
+    // Move the button, too.
+    JS.eval ("$('body').append($('#sidenav-open'));")
+    // Set up the openNav() and closeNav() functions
+    JS.eval ("function openNav() { $('#mySidenav').width(($(window).width() - $('#gameBorder').width()) / 2);}; function closeNav() {  $('#mySidenav').width('0');};")
+  ]]></function>
+  
+  <command name="help">
+    <pattern type="string">^help$|^\?$</pattern>
+    <script><![CDATA[
+      msg ("<center><a href='http://pr-if.org/doc/play-if-card/play-if-card-300dpi.png'><img onload=\"scrollToEnd();\" onerror=\"ASLEvent('P','"+Template("DefaultHelp")+"');$(this).remove();\" src='http://pr-if.org/doc/play-if-card/play-if-card-300dpi.png' width='100%'/></a></center>")
+      game.suppressturnscripts = true
+    ]]></script>
+  </command>
+  
+</library>

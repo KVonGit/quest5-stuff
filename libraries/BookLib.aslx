@@ -1,0 +1,132 @@
+<?xml version="1.0"?>
+<library>
+
+  <type name="booktype">
+    <inherit name="editor_object" />
+    <inherit name="openable" />
+    <take />
+    <feature_container />
+    <read type="script"><![CDATA[
+      if (not this.parent = game.pov) {
+        msg ("You are not holding it.")
+      }
+      else {
+        if (not this.isopen) {
+          msg ("It isn't open.")
+        }
+        else {
+          if (ListCount(GetDirectChildren(this))>0) {
+            ShowMenu ("Which page?", GetDirectChildren(this), true) {
+              obj = GetObject(result)
+              do(obj,"look")
+            }
+          }
+          else {
+            msg ("There are no pages.")
+          }
+        }
+      }
+    ]]></read>
+      <inventoryverbs type="stringlist">
+        <value>Look at</value>
+        <value>Read</value>
+        <value>Drop</value>
+      </inventoryverbs>
+  </type>
+  <type name="pagetype">
+    <inherit name="editor_object" />
+    <displayverbs type="stringlist">
+      <value>Read</value>
+    </displayverbs>
+    <inventoryverbs type="stringlist">
+      <value>Read</value>
+	  <value>Turn</value>
+    </inventoryverbs>
+    <read type="script">
+	  if ((this.parent = game.pov) or this.parent.parent = game.pov){
+        msg (this.pagetext)
+	    if (HasAttribute(this,"nextpage")) {
+		  msg ("{command:read "+GetDisplayAlias(this.nextpage)+":Next Page}")
+	    }
+	  }
+	  else {
+	    msg ("You have to be holding something to read it.")
+	  }
+    </read>
+	<look type="script"><![CDATA[
+	  do (this, "read")
+	]]></look>
+	<pagetext type="string"><![CDATA[This page intentionally left blank.<br/>]]></pagetext>
+    <turn type="script">
+	  exists = false
+	  if (HasAttribute(this,"nextpage")){
+        if (this.nextpage.parent = this.parent){
+		  if (this.nextpage.visible){
+		    do(this.nextpage,"read")
+			exists = true
+		  }
+		}
+	  }
+	  if (not exists){
+	    msg ("There is no page following this one.")
+	  }
+    </turn>
+  </type>
+  
+<!-- Interface -->
+  <tab>
+    <parent>_ObjectEditor</parent>
+    <caption>Book Options</caption>
+    <mustnotinherit>editor_room; defaultplayer</mustnotinherit>
+
+    <control>
+      <controltype>dropdowntypes</controltype>
+      <caption>Type</caption>
+      <types>*=None; booktype=Book; pagetype=Page</types>
+      <width>150</width>
+    </control>
+	
+	<control>
+	  <onlydisplayif>DoesInherit(this,"pagetype")</onlydisplayif>
+	  <controltype>checkbox</controltype>
+	  <caption>Has next page</caption>
+	  <attribute>hasnextpage</attribute>
+	</control>
+	
+	<control>
+	  <onlydisplayif>DoesInherit(this,"pagetype") and GetBoolean(this,"hasnextpage")</onlydisplayif>
+	  <controltype>objects</controltype>
+	  <caption>Next page</caption>
+	  <attribute>nextpage</attribute>
+	</control>
+	
+	<!--
+	
+	<control>
+	  <onlydisplayif>DoesInherit(this,"pagetype")</onlydisplayif>
+	  <controltype>checkbox</controltype>
+	  <caption>Has previous page</caption>
+	  <attribute>haspreviouspage</attribute>
+	</control>
+	
+	<control>
+	  <onlydisplayif>DoesInherit(this,"pagetype") and GetBoolean(this,"haspreviouspage")</onlydisplayif>
+	  <controltype>objects</controltype>
+	  <caption>Previous page</caption>
+	  <attribute>previouspage</attribute>
+	</control>
+	-->
+	
+	<control>
+	  <onlydisplayif>DoesInherit(this,"pagetype")</onlydisplayif>
+	  <controltype>richtext</controltype>
+	  <caption>Page text (Same as 'look' attribute.  This displays when reading or examining the page.)</caption>
+	  <attribute>pagetext</attribute>
+	</control>
+	  
+
+
+  </tab>
+  
+	
+</library>

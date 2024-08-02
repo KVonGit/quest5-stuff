@@ -1,0 +1,243 @@
+<?xml version="1.0"?>
+<library>
+
+<!--
+
+NauticalDirectionsLib
+Version: 1.1
+By: KV
+Quest version: 5.7.2
+Special thanks: Doctor Agon and The Pixie
+
+
+INSTRUCTIONS:
+
+If you are using NpcLib, this should be included AFTER it in the game's code for this NiceDirection() mod to work!
+
+All rooms on a ship need to have a parent object which inherits "shiptype".
+
+In order for the shortcut commands to work, you must add the appropriate type to the exit.
+
+You do not need to change your exits' names or aliases. The script will turn the alias of each exit which is in a "shiptype" object to a nautical exit alias, as long as the exit inherits one of the nautical direction types.
+
+Types:
+"foredirection"
+"portdirection"
+"starboarddirection"
+"aftdirection"
+
+The shortcut commands:
+fore, forward, f, port, p, starboard, sb, s, aft, a
+
+
+IMPORTANT:
+
+	ADD THE FOLLOWING 2 LINES TO THE GAME OBJECT'S inituserinterface
+		
+		SendToJsEval (js.description)
+		JS.changeCompass ()
+
+-->
+
+
+
+
+  <turnscript name="nautical_buttons">
+    <enabled />
+    <script>
+      if (DoesInherit(game.pov.parent.parent,"shiptype")) {
+        list = NewStringList()
+        foreach (exit, ScopeUnlockedExitsForRoom(game.pov.parent)) {
+          list add (list, exit.alias)
+        }
+        JS.updateShipCompass (Join(list, "/"))
+      }
+    </script>
+  </turnscript>
+
+  <object name="js">
+    <description><![CDATA[var onBoard = false;<br/><br/>var shipButtons = '<div id="dir-holder" style="display:none;"><div id="ship-nav"><table id="ship-directions"><tr><td></td><td>';<br/>shipButtons += '<button id="cmdCompassF" class="shipcompassbutton compassbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-icon-primary" type="button" title="fore" onclick="compassClick(\'fore\');" role="button"><span class="ui-button-icon-primary ui-icon ui-icon-arrowthick-1-n" style="left: 0.8em;"></span><span class="ui-button-text" style="left: 0.8em;"></span></button></td></tr>';<br/>shipButtons += '<tr><td><button id="cmdCompassP" class="shipcompassbutton compassbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-icon-primary" type="button" title="port" onclick="compassClick(\'port\');" role="button"><span class="ui-button-icon-primary ui-icon ui-icon-arrowthick-1-w" style="left: 0.8em;"></span><span class="ui-button-text" style="left: 0.8em;"></span></td><td></td><td></button>';<br/>shipButtons += '<button id="cmdCompassSB" class="shipcompassbutton compassbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-icon-primary" type="button" title="starboard" onclick="compassClick(\'starboard\');" role="button"><span class="ui-button-icon-primary ui-icon ui-icon-arrowthick-1-e" style="left: 0.8em;"></span><span class="ui-button-text" style="left: 0.8em;"></span></button></td></tr>';<br/>shipButtons += '<tr><td></td><td><button id="cmdCompassA" class="shipcompassbutton compassbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-icon-primary" type="button" title="aft" onclick="compassClick(\'aft\');" role="button" ><span class="ui-button-icon-primary ui-icon ui-icon-arrowthick-1-s" style="left: 0.8em;"></span><span class="ui-button-text" style="left: 0.8em;"></span></button></td></tr></table>';<br/>shipButtons += '</div></div>';<br/><br/>function changeCompass(){<br/>  addText(shipButtons);$("#ship-directions").css("border-spacing","0");<br/>  $("#cmdCompassNW").parent().parent().parent().attr('id','def-nav');<br/>  $('#ship-nav').hide();$('#def-nav').parent().append($('#dir-holder').html());<br/>  $(".shipcompassbutton").each(function(){<br/>    $(this).button().button("enable").button("disable");<br/>    $(".shipcompassbutton span").css("left", "0.8em");$(".shipcompassbutton .ui-button-text").css('padding','.8em .8em');<br/>  });<br/>};<br/><br/>function toggleNav(){<br/>  $("#def-nav, #ship-nav").toggle()<br/>};<br/><br/>function updateShipCompass(data){<br/>  var exits = data.split("/");<br/>  $(".shipcompassbutton").each(function(){<br/>    for (var exit in exits){<br/>      if($(this).attr('title') === exits[exit]){<br/>        $(this).button("enable");<br/>        break;<br/>      }else{<br/>        $(this).button("disable");<br/>      }<br/>    }<br/>  });<br/>};<br/>]]></description>
+    <attr name="feature_startscript" type="boolean">false</attr>
+    <attr name="_initialise_" type="script">
+    </attr>
+  </object>
+
+  <type name="shiptype">
+    <feature_startscript />
+    <compassTableShip />
+    <captain type="object"></captain>
+    <ramp type="object"></ramp>
+    <destination type="object"></destination>
+    <attr name="_initialise_" type="script">
+      SetNauticalExitAliases
+    </attr>
+    <attr name="locations_visited" type="objectlist"></attr>
+    <course type="objectlist"></course>
+    <shipDirs type="stringdictionary">
+      <item>
+        <key>north</key>
+        <value>fore</value>
+      </item>
+      <item>
+        <key>east</key>
+        <value>starboard</value>
+      </item>
+      <item>
+        <key>west</key>
+        <value>port</value>
+      </item>
+      <item>
+        <key>south</key>
+        <value>aft</value>
+      </item>
+    </shipDirs>
+  </type>
+
+  <type name="foredirection">
+    <inherit name="compassdirection" />
+    <alias>fore</alias>
+    <alt type="stringlist">
+      <value>f</value>
+      <value>foreword</value>
+    </alt>
+  </type>
+
+  <type name="portdirection">
+    <inherit name="compassdirection" />
+    <alias>port</alias>
+    <alt type="stringlist">
+      <value>p</value>
+    </alt>
+  </type>
+
+  <type name="starboarddirection">
+    <inherit name="compassdirection" />
+    <alias>starboard</alias>
+    <alt type="stringlist">
+      <value>sb</value>
+    </alt>
+  </type>
+
+  <type name="aftdirection">
+    <inherit name="compassdirection" />
+    <alias>aft</alias>
+    <alt type="stringlist">
+      <value>a</value>
+    </alt>
+  </type>
+
+  <function name="SetNauticalExitAliases"><![CDATA[
+    ship.compassdirections = ListExclude(ship.compassdirections,"")
+    list add (game.compassdirections, "fore")
+    list add (game.compassdirections, "port")
+    list add (game.compassdirections, "starboard")
+    list add (game.compassdirections, "aft")
+    list add (game.compassdirections, "f")
+    list add (game.compassdirections, "p")
+    list add (game.compassdirections, "sb")
+    list add (game.compassdirections, "a")
+    request (SetCompassDirections, Join(game.compassdirections, ";"))
+    go.pattern = "^go to (?<exit>.*)$|^go (?<exit>.*)$|^(?<exit>forward|fore|starboard|aft|port|north|south|east|west|northeast|northwest|southeast|southwest|in|out|up|down|f|s|sb|a|p|n|e|w|ne|nw|se|sw|o|u|d)$"
+      lookdir.pattern = "^look (?<exit>forward|fore|starboard|aft|port|north|south|east|west|northeast|northwest|southeast|southwest|in|out|up|down|f|s|sb|a|p|n|e|w|ne|nw|se|sw|o|u|d)$"
+    foreach (exit, AllExits()) {
+      if (DoesInherit(exit.parent.parent, "shiptype")) {
+        alias = exit.alias
+        if (DictionaryContains(game.shipDirs, alias)) {
+          repl = StringDictionaryItem(game.shipDirs,alias)
+          exit.alias = repl
+        }
+      }
+    }
+  ]]></function>
+
+  <function name="SendToJsEval" parameters="data"><![CDATA[
+    regEx = "//"
+    js = Split(data,"<br/>")
+    notes = NewStringList()
+    foreach (line, js) {
+      if (StartsWith(line,"//")) {
+        list add (notes, line)
+      }
+    }
+    js = ListExclude(js,notes)
+    finaljs = NewStringList()
+    foreach (line, js) {
+      code = line
+      if (IsRegExMatch(regEx,line)) {
+        list = Split(line,"//")
+        code = list[0]
+      }
+      list add (finaljs, code)
+    }
+    js = Join(finaljs,"")
+    js = Replace(js, "[br]", "<br/>")
+    js = Replace(js, "[br/]", "<br/>")
+    js = Replace(js, "[break]", "<br/>")
+    js = Replace(js, "[linebreak]", "<br/>")
+    js = Replace(js, "[line break]", "<br/>")
+    JS.eval (js)
+  ]]></function>
+
+  <verb name="enter_verb">
+    <pattern>enter #object#;get in #object#;get into #object#</pattern>
+    <defaultexpression>"You can't enter " + object.article + "."</defaultexpression>
+    <property>enter_verb</property>
+  </verb>
+  
+  <!--
+  
+  TODO: 
+	Add tabs so simplify setup.
+	
+	Fix the CSS on the compass. The buttons are a little too far apart.
+  -->
+
+<!-- Fix ReverseDirection() and NiceDirection() -->
+
+  <function name="ReverseDirection" parameters="dir" type="string">
+    list1 = Split("north;northeast;east;southeast;south;southwest;west;northwest;up;down;in;out;fore;port;starboard;aft", ";")
+    list2 = Split("south;southwest;west;northwest;north;northeast;east;southeast;down;up;out;in;aft;starboard;port;fore", ";")
+    n = IndexOf(list1, dir)
+    if (not n = -1) {
+      return (StringListItem(list2, n))
+    }
+    return (dir)
+  </function>
+
+	<function name="NiceDirection" parameters="exit, addthe" type="string">
+	   switch (exit.alias) {
+		 case ("in") { s = "inside" }
+		 case ("out") { s = "outside" }
+		 case ("up") { s = "above" }
+		 case ("down") { s = "below" }
+		  //Added by KV for Nautical Directions:
+		  case ("starboard") {
+			s = "port"
+			addthe = false
+		  }
+		  case ("port") {
+			s = "starboard"
+			addthe = false
+		  }
+		  case ("aft") {
+			s = "fore"
+			addthe = false
+		  }
+		  case ("fore") {
+			s = "aft"
+			addthe = false
+		  }
+		  // End of KV's addition
+		 default {
+		   if (addthe) {
+			 s = "the " + exit.alias
+		   }
+		   else {
+			 s = exit.alias
+		   }
+		 }
+	   }
+	   return (s)
+	 </function>
+  
+  </library>

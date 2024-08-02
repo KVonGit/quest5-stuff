@@ -1,0 +1,173 @@
+<?xml version="1.0"?>
+<library>
+  <object name="standin_horse">
+    <inherit name="editor_object" />
+    <inherit name="surface" />
+    <alias>horse</alias>
+    <scenery type="boolean">false</scenery>
+    <look>You are riding it.</look>
+    <visible type="boolean">false</visible>
+    <feature_container />
+    <listchildren />
+    <listchildrenprefix>On its back, you can see</listchildrenprefix>
+	<displayverbs type="stringlist">
+      <value>Look at</value>
+      <value>Dismount</value>
+    </displayverbs>
+    <dismount type="script">
+      this.visible = false
+      foreach (o, GetDirectChildren(this.real_horse)) {
+        MoveObject (o, game.real_pov)
+      }
+      game.real_pov.visible = true
+      DisableTurnScript (on_horseback)
+      ChangePOV (game.real_pov)
+	  game.pov.onhorseback = false
+      link = ProcessText("{object:"+game.currenthorse.name+":"+game.currenthorse.alias+"}")
+      JS.eval ("$('.elementmenu').each(function(){if($(this).attr('data-elementid') == '"+this.name+"'){$(this).html('"+link+"');}	});")
+      game.currenthorse = null
+    </dismount>
+    <addscript type="script">
+      s = WriteVerb(object,"fall")
+      msg (s + " off of the horse.")
+      object.parent = this.parent
+    </addscript>
+  </object>
+  <command name="dismount_cmd">
+    <pattern type="string">^dismount$</pattern>
+    <script>
+      if (DoesInherit(game.pov,"horsetype")) {
+        do (game.currenthorse.standin, "dismount")
+      }
+      else {
+        msg ("You aren't riding anything.")
+      }
+    </script>
+  </command>
+  <command name="take_mod">
+    <pattern>take #object#; get #object#; pick up #object#</pattern>
+    <multiple>
+      takeList = NewObjectList()
+      foreach (obj, ListExclude(ScopeVisibleNotHeldNotScenery(), game.pov)) {
+        if (obj.parent = game.pov.parent) {
+          list add (takeList, obj)
+        }
+      }
+      return (takeList)
+    </multiple>
+    <scope>notheld</scope>
+    <multipleobjects type="script">
+      game.pov.currentcommandpendingobjectscope = NewObjectList()
+      foreach (obj, ListExclude(ScopeVisibleNotHeldNotScenery(), game.pov)) {
+        if (obj.parent = game.pov.parent and not DoesInherit(obj, "npc_type")) {
+          list add (game.pov.currentcommandpendingobjectscope, obj)
+        }
+      }
+    </multipleobjects>
+    <script>
+      if (multiple and ListCount(object) = 0) {
+        msg ("Nothing here to take.")
+      }
+      else {
+        foreach (obj, object) {
+          goodtogo = false
+          if (not GetBoolean (game.pov, "onhorseback")) {
+            goodtogo = true
+          }
+          else {
+            if (obj.parent = game.pov.parent) {
+              goodtogo = false
+              msg ("You'll have to dismount first.")
+            }
+          }
+          if (goodtogo) {
+            DoTake (obj, multiple)
+          }
+        }
+      }
+    </script>
+  </command>
+  <type name="horsetype">
+    <inherit name="surface" />
+    <inherit name="editor_player" />
+    <feature_container />
+    <feature_player />
+	<standinprototype type="object">standin_horse</standinprototype>
+    <attr name="pov_alias">me (on horseback)</attr>
+    <attr name="pov_gender">you (on horseback)</attr>
+    <attr name="pov_article">yourself (on horseback)</attr>
+    <attr name="pov_possessive">your</attr>
+    <attr name="pov_look">Looking good  (on horseback).</attr>
+    <displayverbs type="stringlist">
+      <value>Look at</value>
+      <value>Mount</value>
+    </displayverbs>
+    <mount type="script">
+      if (not game.pov = this) {
+        msg ("Done.")
+        game.pov.visible = false
+        game.currenthorse = this
+        game.real_pov = game.pov
+        this.standin = CloneObjectAndMoveHere(this.standinprototype)
+        this.oldalt = GetDisplayAlias(this)
+        this.standin.visible = true
+        this.standin.real_horse = this
+        foreach (o, GetDirectChildren(game.pov)) {
+          MoveObject (o, this)
+        }
+        EnableTurnScript (on_horseback)
+        ChangePOV (this)
+		game.pov.onhorseback = true
+        this.alt = this.alt - this.oldalt
+        game.pov.pov_alt = game.pov.pov_alt - this.oldalt
+      }
+      else {
+        msg ("You already have.")
+      }
+      link = ProcessText("{object:"+this.standin.name+":"+this.standin.alias+"}")
+      JS.eval ("$('.elementmenu').each(function(){if($(this).attr('data-elementid') == '"+this.name+"'){$(this).html('"+link+"');}	});")
+    </mount>
+  </type>
+
+  <verb>
+    <property>mount</property>
+    <pattern>mount</pattern>
+    <defaultexpression>"You can't mount " + object.article + "."</defaultexpression>
+  </verb>
+  <verb name="dismount_verb">
+    <property>dismount</property>
+    <pattern>dismount</pattern>
+    <defaultexpression>"You can't dismount " + object.article + "."</defaultexpression>
+  </verb>
+  <turnscript name="on_horseback">
+    <enabled type="boolean">false</enabled>
+    <script>
+      game.currenthorse.standin.parent = game.currenthorse.parent
+      JS.eval ("updateLocation ('"+CapFirst(GetDisplayName(game.pov.parent))+" (on horseback)');")
+    </script>
+  </turnscript>
+  
+  <tab>
+    <parent>_ObjectEditor</parent>
+    <caption>Horse Options</caption>
+    <mustnotinherit>editor_room</mustnotinherit>
+	<onlydisplayif>not this=player</onlydisplayif>
+	
+	<control>
+      <controltype>dropdowntypes</controltype>
+      <caption>Type</caption>
+      <types>*=None; horsetype=Horse</types>
+      <width>150</width>
+    </control>
+	
+	<control>
+      <controltype>objects</controltype>
+      <caption>Stand-in prototype</caption>
+      <attribute>standinprototype</attribute>
+      <mustinherit>horsetype</mustinherit>
+    </control>
+	
+	
+  </tab>
+	
+</library>

@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+
+<library>
+  <!-- You must add SetupMapWindow to your User Interface Initialisation script!!! -->
+
+  <function name="SetupMapWindow"><![CDATA[
+    JS.eval ("$('#gamePanelSpacer').height(0);")
+    msg ("<div id='mapHolder' style='display:none;'></div>")
+    JS.eval ("$('#gridPanel').appendTo($('#mapHolder')).css({'left':'63%','position':'absolute'});var mh = $('#mapHolder');mh.dialog({height: 400, width: 700,close: function(){mh.dialog('close');}});mh.dialog('option', 'title', 'Map');mh.dialog('open');$('.ui-dialog').css('position', 'fixed');openMap = function(){mh.dialog('open');};")
+    JS.setCommands ("SHOW MAP")
+  ]]></function>
+	
+  <command name="view_map_command">
+    <pattern>view map;open map;map;show map</pattern>
+    <script>
+      JS.openMap ()
+      game.notarealturn = true
+    </script>
+  </command>
+</library>

@@ -1,0 +1,296 @@
+<?xml version="1.0"?>
+<!--
+
+	ElevatorLib
+	by K.V.
+	
+	Version:  1.2
+	Quest version: 5.7.2
+	Created:  2018
+	
+	
+	TODO:
+			Add an elevator door (and an elevator scenery object, when the door is open) in each elevator_entrance room.
+			
+			(More things, which I haven't notice or thought of yet.)
+			
+			
+	INSTRUCTIONS:
+	
+			You only get ONE elevator!
+			
+	
+			You will see a new tab ("Elevator Entrance") on objects.
+			
+			Click on it, and set the room to an entrance (if you wish it to be one).
+			
+			Set the floor integer.  (0 is ground level.)
+			
+			Be sure it has an alias for the elevator to use in its script.
+			
+			Press play!
+	
+-->
+
+
+
+<library>
+
+
+
+   <type name="elevator_entrance">
+      <alias>ground floor lobby</alias>
+      <floor type="int">0</floor>
+   </type>
+
+  <object name="prototypes_room">
+  
+  
+    <object name="elevator">
+	  <feature_startscript />
+	  <attr name="_initialise_" type="script">
+	    //SetTimeout (1) {
+          SetupElevator
+        //}
+		SetTimeout(2){
+		  //game.pov.grid_coordinates = null
+		  //game.pov.parent = game.pov.parent
+          JS.Grid_ClearAllLayers ()
+          Grid_Redraw
+          Grid_DrawPlayerInRoom (game.pov.parent)
+          VisitRoom (game.pov.parent)
+		}
+      </attr>
+    </object>
+	
+	
+	
+    <object name="panel">
+      <inherit name="editor_object" />
+      <inherit name="surface" />
+      <feature_container />
+      <listchildren />
+      <feature_startscript />
+      <attr name="_initialise_" type="script">
+        this.parent.panel = this
+      </attr>
+      <displayverbs type="stringlist">
+        <value>Look at</value>
+      </displayverbs>
+      <takemsg>It is part of the elevator.</takemsg>
+      <look>It's a button panel.</look>
+    </object>
+	
+    <object name="elevator button">
+	  <inherit name="editor_object" />
+      <alias>elevator button</alias>
+      <press type="script">
+        if (not this.target_elevator.current_floor = game.pov.parent.floor) {
+          this.target_elevator.current_floor = game.pov.parent.floor
+          SetTurnTimeout (2) {
+            msg ("The elevator has arrived.")
+          }
+        }
+        else {
+          msg ("The elevator is already on this floor.")
+        }
+      </press>
+      <takemsg>It is fixed in place.</takemsg>
+      <displayverbs type="stringlist">
+        <value>Look at</value>
+      </displayverbs>
+      <look>It's the button that calls the elevator.</look>
+    </object>
+	
+	
+  </object>
+
+
+
+
+  <function name="SetupElevator"><![CDATA[
+    elevator.clones = NewObjectList()
+    elevator.changedcurrent_floor => {
+      foreach (elev, elevator.clones) {
+        elev.current_floor = this.current_floor
+      }
+    }
+    levels = NewDictionary()
+    foreach (o, AllObjects()) {
+      if (HasAttribute(o,"floor")) {
+        dictionary add (levels, o.name, o.floor)
+      }
+    }
+    foreach (level, levels) {
+      newlift = CloneObject(elevator)
+      lvl = GetObject(level)
+      newlift.exit_to = lvl
+      newlift.alias = newlift.alias + " (currently located at "+GetDisplayName(lvl)+")"
+      newButton = CloneObjectAndMove(elevator button,lvl)
+      newButton.target_elevator = newlift
+      newlift.actual_floor = DictionaryItem(levels,level)
+      newlift.current_floor = newlift.actual_floor
+      create exit (newlift.name+"_out", "out", newlift, lvl, "outdirection")
+      create exit (newlift.name+"_in", "in", lvl, newlift, "indirection")
+      newlift.exit = GetObject(GetExitByLink(newlift,lvl))
+      lvl.to_lift = GetObject(GetExitByLink(lvl,newlift))
+      lvl.to_lift.runscript = true
+      lvl.to_lift.script => {
+        if (not this.parent.floor = this.to.current_floor) {
+          msg ("The elevator is not on this floor.")
+        }
+        else {
+          game.pov.parent = this.to
+        }
+      }
+    }
+    elevator.clones = FilterByAttribute(AllObjects(),"prototype",elevator)
+    CreateButtons
+    foreach (elev, elevator.clones) {
+      foreach (o, ListExclude(elevator.clones,elev)) {
+        if (elev.actual_floor = o.actual_floor - 1) {
+          // going down
+          create exit (elev.name+"_up", "up", elev, o, "updirection")
+          create exit (o.name+"_down", "down", o, elev, "downdirection")
+          exit = GetObject(GetExitByLink(elev,o))
+          elev.exit_up = exit
+          exit.visible = false
+          exit.scenery = true
+          exit = GetObject(GetExitByLink(o,elev))
+          exit.visible = false
+          exit.scenery = true
+        }
+        else if (elev.actual_floor = o.actual_floor + 1) {
+          // going up
+          create exit (o.name+"_up", "up", o, elev, "updirection")
+          create exit (elev.name+"_down", "down", elev, o, "downdirection")
+          exit = GetObject(GetExitByLink(elev,o))
+          elev.exit_down = exit
+          exit.visible = false
+          exit.scenery = true
+          exit = GetObject(GetExitByLink(o,elev))
+          exit.visible = false
+          exit.scenery = true
+        }
+      }
+    }
+    JS.Grid_ClearAllLayers ()
+    Grid_Redraw
+    Grid_DrawPlayerInRoom (game.pov.parent)
+    VisitRoom (game.pov.parent)
+	//exitListVar = ProcessText(FormatExitList("You can go", ScopeExits(), "or", "."))
+	//JS.eval("if($('.exitlink').length === 0){addTextAndScroll('<br/>"+exitListVar+"<br/><br/>');}else{$('.exitlink').parent().html('"+exitListVar+"');}")
+  ]]></function>
+  
+  <function name="FilterByHasAttribute" parameters="lst, name" type="objectlist">
+    l = NewObjectList()
+    foreach (o, lst) {
+      if (HasAttribute(o,name)) {
+        list add (l, o)
+      }
+    }
+    return (l)
+  </function>
+  
+  <function name="CreateButtons"><![CDATA[
+    lvls = FilterByHasAttribute(AllObjects(),"floor")
+    foreach (lvl, lvls) {
+      create ("button "+lvl.floor)
+      obj = GetObject("button "+lvl.floor)
+      obj.alias = ("button "+lvl.floor)
+      obj.destination = lvl
+      obj.usedefaultprefix = false
+      obj.takemsg = "It is fixed in place."
+      obj.displayverbs = Split("Look at")
+      obj.press => {
+        HandleLiftButtonPress (this)
+      }
+      MoveObject (obj, panel)
+    }
+    foreach (elev, elevator.clones) {
+      CloneObjectAndMove (panel, elev)
+    }
+  ]]></function>
+  
+  <function name="GetLift" parameters="button" type="object">
+    foreach (elev, elevator.clones) {
+      if (elev.exit_to = button.destination) {
+        return (elev)
+      }
+    }
+    return (game.pov.parent)
+  </function>
+  
+  <function name="HandleLiftButtonPress" parameters="btn"><![CDATA[
+    int = 1
+    target = GetLift(btn)
+    if (not target = game.pov.parent) {
+      if (game.pov.parent.actual_floor < target.actual_floor) {
+        // going up
+        upper = target
+        lower = game.pov.parent
+        int = upper.actual_floor - lower.actual_floor
+      }
+      else if (game.pov.parent.actual_floor>target.actual_floor) {
+        // going down
+        upper = game.pov.parent
+        lower = target
+        int = lower.actual_floor - upper.actual_floor
+      }
+      Grid_SetGridCoordinateForPlayer (game.pov, upper, "z", Grid_GetGridCoordinateForPlayer(game.pov, lower, "z")+int)
+      game.pov.parent = target
+    }
+    else {
+      msg ("You are already on that floor.")
+    }
+  ]]></function>
+  
+  <function name="VisitRoom" parameters="room">
+    if (not GetBoolean(room, "genvisited")) {
+      room.genvisited = true
+      Grid_CalculateMapCoordinates (room, game.pov)
+      // Grid_DrawRoom (room, false, game.pov)
+      foreach (exit, AllExits()) {
+        if (exit.parent = room) {
+          VisitRoom (exit.to)
+        }
+      }
+    }
+  </function>
+  
+    <verb>
+    <property>press</property>
+    <pattern>press</pattern>
+    <defaultexpression>"You can't press " + object.article + "."</defaultexpression>
+  </verb>
+  
+   <tab>
+    <parent>_ObjectEditor</parent>
+    <caption>Elevator Entrance</caption>
+    <mustnotinherit>defaultplayer</mustnotinherit>
+	
+	<control>
+      <controltype>dropdowntypes</controltype>
+      <caption>Type</caption>
+      <types>*=None; elevator_entrance=Elevator Entrance</types>
+      <width>150</width>
+    </control>
+  
+    <control>
+      <controltype>number</controltype>
+      <caption>Floor</caption>
+      <attribute>floor</attribute>
+      <width>100</width>
+      <mustinherit>elevator_entrance</mustinherit>
+    </control>
+	
+	<control>
+      <controltype>textbox</controltype>
+      <caption>Room Alias (Please be sure to set this.)</caption>
+      <attribute>alias</attribute>
+      <mustinherit>elevator_entrance</mustinherit>
+    </control>
+
+  </tab>
+
+</library>

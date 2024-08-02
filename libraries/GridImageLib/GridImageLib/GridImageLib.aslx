@@ -1,0 +1,198 @@
+<?xml version="1.0"?>
+	<!--
+	
+	IMPORTANT:
+	You must add the following line to you User Interface Initialisation script:
+	
+	SetupGridImages
+	
+	-->
+<!--
+		GridImgLib 
+		
+		by KV
+		
+		Special Guest Coders:  MrAngel & Dcoder
+		
+		VERSION 2.0
+		
+		This will allow you to set a picture to display in place of a room's 
+		standard map image.  
+		
+		All you need to do is include this library along (make sure its js file is in the folder as well!), make sure the map is enabled,
+		then go to the new "Grid Image" tab on the room object.  From there, you
+		can use the file browser to import an image file, or you can enter a URL
+		to use an online image.  
+		
+		(You can NOT enter the path to the file!  If using a local image,
+		the file MUST be in the game's main folder!!!)
+		
+		===
+		
+		IMPORTANT NOTE:
+		
+		If you want to switch back to using the standard map image, you must completely
+		remove the "grid_image" attribute from the room!!!
+		
+		===
+		
+		Designed for Quest 5.7.1
+		Year of publication: 2018
+
+-->
+	<!--
+	
+	IMPORTANT:
+	You must add the following line to you User Interface Initialisation script:
+	
+	SetupGridImages
+	
+	-->
+  <library>
+  
+	<function name="SetGridImgPath" parameters="filename">
+		JS.setImagePath (GetFileUrl("_FILENAME_"))
+	</function>
+  
+	<function name="Grid_DrawRoom" parameters="room, redraw, playerobject"><![CDATA[
+		if (room.grid_render) {
+		  if (redraw or not Grid_GetRoomBooleanForPlayer(playerobject, room, "grid_isdrawn")) {
+			if (room.parent <> null) {
+			  Grid_DrawRoom (room.parent, redraw, playerobject)
+			}
+			gridx = Grid_GetGridCoordinateForPlayer(game.pov, room, "x")
+			gridy = Grid_GetGridCoordinateForPlayer(game.pov, room, "y")
+			JS.Grid_DrawBox (gridx, gridy, Grid_GetGridCoordinateForPlayer(game.pov, room, "z"), room.grid_width, room.grid_length, room.grid_border, room.grid_borderwidth, room.grid_fill, room.grid_bordersides)
+			if (HasString(room, "grid_image")) {
+			  imgfile = false
+			  imgexts = Split(".png;.jpeg;.gif;.jpg;svg",";")
+			  room.imageid = room.name+"-grid-image"
+			  JS.eval ("var roomImageId = '"+room.imageid+"';var gridX = '"+gridx+"';var gridY = '"+gridy+"';var roomGridWidth = '"+room.grid_width+"';var roomGridHeight = '"+room.grid_length+"';customDrawImage('"+room.grid_image+"');")
+			}
+			if (LengthOf(room.grid_label) > 0) {
+			  label_x = Grid_GetGridCoordinateForPlayer(game.pov, room, "x") + room.grid_width/2.0
+			  label_y = (Grid_GetGridCoordinateForPlayer(game.pov, room, "y") + room.grid_length/2.0) - 0.5
+			  JS.Grid_DrawLabel (label_x, label_y, Grid_GetGridCoordinateForPlayer(game.pov, room, "z"), room.grid_label)
+			}
+			foreach (exit, AllExits()) {
+			  if (exit.grid_render and exit.parent = room and exit.grid_length > 0) {
+				Grid_DrawLine (Grid_GetGridCoordinateForPlayer(game.pov, exit, "x"), Grid_GetGridCoordinateForPlayer(game.pov, exit, "y"), Grid_GetGridCoordinateForPlayer(game.pov, exit, "end_x"), Grid_GetGridCoordinateForPlayer(game.pov, exit, "end_y"), game.mapexitcolour, game.mapexitwidth)
+			  }
+			}
+			Grid_SetRoomBooleanForPlayer (playerobject, room, "grid_isdrawn", true)
+		  }
+		}
+	]]></function>
+    
+  <function name="FinishTurn">
+    if (GetBoolean(game,"suppressturnscripts")) {
+      game.suppressturnscripts = false
+    }
+    else {
+      RunTurnScripts
+    }
+    UpdateStatusAttributes
+    CheckDarkness
+    UpdateObjectLinks
+  </function>
+  
+  <function name="AslSet" parameters="data">
+    game.suppressturnscripts = true
+    data = Split(data,"||")
+
+    foreach (bit, data) {
+      stuff = Split(bit,"=")
+      obj_attr = stuff[0]
+      obj_attr = Split(obj_attr,".")
+	  if (ListCount(obj_attr)>2){
+	    exclude = obj_attr[ListCount(obj_attr)-1]
+	    obj = Join(ListExclude(obj_attr,exclude),".")
+		obj_attr = NewStringList()
+		list add (obj_attr, obj)
+		list add (obj_attr, exclude)
+	  }
+	  else {
+        obj = obj_attr[0]
+	  }
+      obj = GetObject(obj)
+      attr = obj_attr[1]
+      val = stuff[1]
+      if (EndsWith(val,"_toInt")) {
+        val = ToInt(Replace(val,"_toInt",""))
+      }
+      if(LCase(val)="true"){
+        val = true
+      }
+      else if(LCase(val)="false"){
+        val = false
+      }
+      else if (EndsWith(val,"_toDouble")) {
+        val = ToDouble(Replace(val,"_toDouble",""))
+      }
+      set (obj, attr, val)
+    }
+  </function>
+  
+  <function name="SetupGridImages"><![CDATA[
+	  SetGridImgPath("")
+	  foreach (room, AllObjects()) {
+		if (HasAttribute(room,"grid_image")) {
+		  JS.eval ("imagesToCheck.push('"+room.grid_image+"');checkImages();")
+		}
+	  }
+  ]]></function>
+  
+
+	<!--
+	Add a tab to the editor.
+	-->
+
+	<tab>
+		<parent>_ObjectEditor</parent>
+		<onlydisplayif>game.gridmap</onlydisplayif>
+		<caption>Grid Image(optional)</caption>
+		<title>Select an image to display in the map</title>
+		<mustnotinherit>editor_object</mustnotinherit>
+		<control>
+		  <controltype>checkbox</controltype>
+		  <caption>Enter a URL (or file name) instead of loading a local image</caption>
+		  <attribute>gridimg_custompath</attribute>
+		</control>
+		<control>
+			<caption>Grid Image</caption>
+			<controltype>file</controltype>
+			<attribute>grid_image</attribute>
+			<source>[EditorImageFormats]</source>
+			<filefiltername>Picture Files</filefiltername>
+			<onlydisplayif>not HasAttribute(this,"gridimg_custompath")</onlydisplayif>
+			<preview/>
+		</control>
+		<control>
+			<caption>Grid Image</caption>
+			<controltype>file</controltype>
+			<attribute>grid_image</attribute>
+			<source>[EditorImageFormats]</source>
+			<filefiltername>Picture Files</filefiltername>
+			<onlydisplayif>not this.gridimg_custompath</onlydisplayif>
+			<preview/>
+		</control>
+		<control>
+			  <controltype>label</controltype>
+			  <onlydisplayif>not this.gridimg_custompath</onlydisplayif>
+			  <caption>THIS FILE WILL BE IMPORTED BY QUEST</caption>
+			</control>
+		<control>
+		  <caption>Enter the URL or file name</caption>
+		  <attribute>grid_image</attribute>
+		  <controltype>textbox</controltype>
+		  <onlydisplayif>this.gridimg_custompath</onlydisplayif>
+		</control>
+		<control>
+		  <controltype>label</controltype>
+		  <onlydisplayif>this.gridimg_custompath</onlydisplayif>
+		  <caption>IF ENTERING A FILE NAME, BE SURE THE FILE IS IN THE GAME'S FOLDER!!!</caption>
+		</control>
+	</tab>
+  <javascript src="GridImageLib.js" />
+  
+  </library>

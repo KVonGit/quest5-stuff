@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+
+<!--
+    
+	PrettyInventoryLib
+	
+	Version 1
+	
+	Quest Version: 5.7 - 5.8
+	
+	INSTRUCTIONS:  Just include this library.
+
+-->
+
+<library>
+  <command name="pretty_inventory_cmd">
+    <pattern type="string">^i$|^inv$|^inventory$</pattern>
+    <script>
+      list = FormatObjectList(Template("CarryingListHeader"), game.pov, Template("And"), ".")
+      if (list = "") {
+        msg (Template("NotCarryingAnything"))
+      }
+      else {
+        PrintPrettyInventory
+      }
+    </script>
+  </command>
+
+  
+  <turnscript name="update_contents_in_lists_turnscript">
+    <enabled />
+    <script>
+      MakePrettyPanesLists
+    </script>
+  </turnscript>
+  
+  <function name="InitUserInterface">
+    SetTimeout (1) {
+      MakePrettyPanesLists
+    }
+  </function>
+  <function name="MakePrettyPanesLists"><![CDATA[
+    foreach (o, ListExclude(ScopeVisible(),game.pov)) {
+      if (not HasAttribute(o, "listalias")) {
+        o.listalias = GetDisplayAlias(o)
+      }
+      o.listalias = Replace(o.listalias,"&nbsp;","")
+      containers = ListExclude(ListParents(o), game.pov)
+      containers = ListExclude(containers, ListParents(game.pov))
+      foreach (c, containers) {
+        o.listalias = "&nbsp;&nbsp;" + o.listalias
+      }
+    }
+  ]]></function>
+  <function name="PrintPrettyInventory"><![CDATA[
+    stuff = ScopeInventory()
+    list = ""
+    int = 0
+    foreach (o, stuff) {
+      int = int + 1
+      o.prettyalias = GetDisplayName(o)
+      foreach (c, ListExclude(ListParents(o), game.pov)) {
+        if (ListContains (stuff, c)) {
+          o.prettyalias = "&nbsp;&nbsp;" + o.prettyalias
+        }
+      }
+      br = ""
+      if (int > 1) {
+        br = "<br/>"
+      }
+      list = list + br + o.prettyalias
+    }
+    msg ("You are carrying:")
+    msg (list)
+  ]]></function>
+  
+</library>

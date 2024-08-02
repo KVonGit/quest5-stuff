@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<!---
+
+LookAtRoomLib
+Author KV
+Version 1.0
+Quest version 5.7.2
+Date Feb 2018
+
+NOTES
+This just allows the player to examine the current location.
+
+They would need to know the room's alias (or name) and enter ROOM ALIAS.
+
+This just runs ShowRoomDescription.
+
+-->
+<library>
+
+    <command name=lookat>
+    <pattern>look at #object#; look #object#; x #object#; examine #object#; exam #object#; ex #object#</pattern>
+    <script>
+      if (GetBoolean(object, "hidechildren")) {
+        object.hidechildren = false
+      }
+       START OF FIRST SECTION ADDED 
+      if (object = game.pov.parent) {
+        bak = game.autodescription_youarein
+        game.autodescription_youarein = 0
+        ShowRoomDescription
+        game.autodescription_youarein = bak
+      }
+        END OF FIRST SECTION (CHANGED NEXT LINE TO ELSE IF)
+      else if (TypeOf(object, look) = script) {
+        do (object, look)
+      }
+      else {
+        lookdesc = 
+        if (HasString(object, look)) {
+          lookdesc = object.look
+        }
+        if (LengthOf(lookdesc) = 0) {
+          lookdesc = Template(DefaultObjectDescription)
+        }
+        if (GetBoolean(object, switchedon)) {
+          if (HasString(object, switchedondesc)) {
+            lookdesc = lookdesc +   + object.switchedondesc
+          }
+        }
+        else {
+          if (HasString(object, switchedoffdesc)) {
+            lookdesc = lookdesc +   + object.switchedoffdesc
+          }
+        }
+        isDark = CheckDarkness()
+        if (isDark and not GetBoolean(object, lightsource)) {
+          lookdesc = DynamicTemplate(LookAtDarkness, object)
+        }
+        msg (lookdesc)
+      }
+      ListObjectContents (object)
+    </script>
+    <!-- START OF SECOND SECTION ADDED -->
+    <changecommandscope type=script>
+      list add (items, game.pov.parent)
+    </changecommandscope>
+    <!-- END OF SECOND SECTION ADDED -->
+  </command>
+  
+</library>

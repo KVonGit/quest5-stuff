@@ -1,0 +1,486 @@
+<?xml version="1.0"?>
+<!--
+	DoorLib
+	Version 1.5
+	by KV (with much help from mrangel)
+	Quest version: 5.7.2
+	2018
+	
+	Inspired by the following post:
+	http://textadventures.co.uk/forum/quest/topic/9m2lavmzregstombcuxrba/fun-with-doors
+	
+	Version 1.6
+	
+	Added "After opening" script to door tab. 
+	
+	Thanks to Forgewright!
+	
+	Version 1.7
+	
+	Added "Description" to door tab.
+	
+	Thanks to Forgewright!
+	
+	Version 1.8
+	
+	Minor bug fixes (GUI).
+
+-->
+
+
+<library>
+
+  <object name="DoorLibInit_obj">
+    <feature_startscript/>
+	<attr name="_initialise_" type="script">
+	  GenerateDoors
+	  SetTurnTimeout(2){
+	    destroy("DoorLibInit_obj")
+	  }
+	</attr>
+  </object>
+  
+  <object name="door_0">
+    <inherit name="editor_object" />
+    <inherit name="openable" />
+	<inherit name="container_lockable"/>
+    <feature_container />
+  </object>
+
+  <function name="GenerateDoors"><![CDATA[
+      foreach (exit, AllExits()) {
+        if (GetBoolean(exit,"hasdoor")) {
+          this = CloneObjectAndMove(door_0,exit.parent)
+          if (not GetBoolean(exit,"doorhascustomalias")){
+		    this.alias = "door leading " + exit.alias
+		  }
+		  else {
+		    this.alias = exit.doorcustomalias
+		  }
+          exit.door = this
+		  this.exit = exit
+          this.to = exit.to
+		  this.locked = false
+		  this.displayverbs = this.displayverbs - "Take" + "Use"
+		  if (HasAttribute(exit,"dooronopen")){
+			  this.onopen = exit.dooronopen
+		  }
+		  if (GetBoolean(exit,"doorusecustomprefix")){
+		    this.usedefaultprefix = false
+		  }
+		  if (HasAttribute(exit,"doorprefix")){
+		    this.prefix = exit.doorprefix
+		  }
+		  if (GetBoolean(exit,"hasotherside")){
+			this.changedisopen => {
+			  if (not HasAttribute(this,"otherside")) {
+			    this.exit.rev_exit = GetObject(GetExitByLink(this.to,this.parent))
+				if (HasAttribute(this.exit.rev_exit,"door")){
+				  this.otherside = this.exit.rev_exit.door
+			    }
+			  }
+			  if (HasAttribute(this,"otherside")) {
+			    this.otherside.isopen = this.isopen
+			  }
+			  if ((this.isopen) and HasAttribute(this,"onopen")){
+			    do(this,"onopen")
+			  }
+			}
+			this.changedlocked => {
+			  if (not HasAttribute(this,"otherside")) {
+			    this.exit.rev_exit = GetObject(GetExitByLink(this.to,this.parent))
+				if (HasAttribute(this.exit.rev_exit,"door")){
+				  this.otherside = this.exit.rev_exit.door
+				}
+			  }
+			  if (HasAttribute(this,"otherside")) {
+			    this.otherside.locked = this.locked
+			  }
+			  this.exit.locked = this.locked
+			}
+		  }
+          if (HasAttribute(exit, "doorlook")){
+			this.onlook = exit.doorlook
+		  }
+		  if (HasAttribute (exit, "doornoprintifopen")){
+		    this.noprintifopen = true
+		  }
+		  this.look => {
+		    game.text_processor_this = this
+			if (HasAttribute(this, "onlook")){
+			  if (HasScript(this, "onlook")){
+			    do (this, "onlook")
+			  }
+			  if (HasString (this, "onlook")){
+			    msg(this.onlook)
+			  }
+  		      if (not GetBoolean(this, "noprintifopen")){
+			    msg("It is {either this.isopen:open|closed}{if this.locked: and locked}.")
+			  }
+			}
+		  }
+          this.use => {
+            if (HasScript(this.exit,"script")){
+			  do (this.exit,"script")
+			}
+			else {
+			  MoveObject(game.pov,this.to)
+			  this.open = true
+			}
+          }
+		  if (GetBoolean(exit,"doorhasmsg") or GetBoolean(exit,"doorislockable")){
+            this.scenery = false
+		  }
+		  else {
+		    this.scenery = exit.doorisscenery
+		  }
+          this.open = true
+          this.openscript => {
+            if (not this.isopen) {
+              if (not GetBoolean(this,"locked")) {
+                msg ("Opened.")
+                this.isopen = true
+              }
+              else {
+                msg ("It appears to be locked.")
+              }
+            }
+            else {
+              msg ("It is already open.")
+            }
+          }
+          this.close = true
+          this.closescript => {
+            if (this.isopen) {
+              msg ("Closed.")
+              this.isopen = false
+            }
+          }
+		  if (not HasAttribute(this.parent,"doors")) {
+		    this.parent.doors = NewObjectDictionary()
+		  }
+		  dictionary add (this.parent.doors,this.name,this)
+		  if (not HasAttribute(this.to,"connecting_doors")) {
+		    this.to.connecting_doors = NewObjectDictionary()
+		  }
+		  dictionary add (this.to.connecting_doors,this.name,this)  
+		  if (GetBoolean(exit,"doorislockable")){
+		    exit.hasdoormsg = true
+		    this.scenery = false
+			this.visible = true
+		    this.keycount = exit.doorkeycount
+			this.key = exit.doorkey
+			this.key1 = exit.doorkey
+			if (this.keycount>1) this.key2 = exit.doorkey2
+			if (this.keycount>2) this.key3 = exit.doorkey3
+			if (this.keycount>3) this.key4 = exit.doorkey4
+			if (this.keycount>4) this.key5 = exit.doorkey5
+			this.locked = GetBoolean(exit,"doorlocked")
+			this.autounlock = GetBoolean(exit,"doorautounlock")
+			this.autoopen = GetBoolean(exit,"doorautoopen")
+			this.nokeymessage = exit.doornokeymessage
+			this.unlockmessage = exit.doorunlockmessage
+			this.lockmessage = exit.doorlockmessage
+			this.canlockopen = GetBoolean(exit,"doorcanlockopen")
+			this.onlock = exit.dooronlock
+			this.onunlock = exit.dooronunlock
+			this.displayverbs = this.displayverbs + Split("Lock;Unlock",";")
+			
+		  }
+		  
+		  if (GetBoolean (exit,"hasdoormsg")){
+		    exit.runscript = true
+			exit.doormsg = "(You open the door first.)"
+			if (HasString(exit,"customdoormsg")){
+			  if (not exit.customdoormsg = "") {
+			    exit.doormsg = exit.customdoormsg
+			  }
+			}
+			if (HasScript(exit,"script")) {
+			  exit.script_bak = exit.script
+			}
+			
+		    exit.script => {
+		      if (not GetBoolean(this.door,"locked")) {
+		        if (not this.door.isopen) {
+		    	  this.door.isopen = true
+		      	   msg (this.doormsg)
+				   if (HasAttribute(this.door,"otherside")){
+				     if(GetBoolean(this.door.otherside,"locked")){
+					   msg("The door closes behind you.")
+					   this.door.isopen = false
+					 }
+				   }
+		        }
+				if (HasAttribute(this,"script_bak")) {
+				  do (this, "script_bak")
+				}
+				else {
+		          game.pov.parent = this.to
+				}
+		      }
+		      else {
+		        msg ("The door is locked.")
+		      }
+		    }
+		  }
+        }
+      }
+      destroy ("door_0")
+  ]]></function>
+  
+  
+  
+  
+  <!-- TABS -->
+  
+  <tab>
+    <parent>_ExitEditor</parent>
+	<caption>Door Settings</caption>
+	
+
+  	  
+	<control>
+	  <controltype>objects</controltype>
+	  <caption>Add a door</caption>
+	  <attribute>hasdoor</attribute>
+	</control>
+	
+	<control>
+	  <onlydisplayif>this.hasdoor</onlydisplayif>
+	  <controltype>checkbox</controltype>
+	  <caption>Door is two-sided</caption>
+	  <attribute>hasotherside</attribute>
+	</control>
+	
+	<control>
+	  <onlydisplayif>this.hasdoor</onlydisplayif>
+	  <controltype>checkbox</controltype>
+	  <caption>Use custom alias</caption>
+	  <attribute>doorhascustomalias</attribute>
+	</control>
+	
+	<control>
+	  <caption>Door alias</caption>
+	  <controltype>textbox</controltype>
+	  <width>300</width>
+	  <attribute>doorcustomalias</attribute>
+	  <onlydisplayif>this.doorhascustomalias</onlydisplayif>
+	  <nullable/>
+	</control>
+	
+	<control>
+      <controltype>checkbox</controltype>
+      <caption>Use a custom prefix</caption>
+      <attribute>doorusecustomprefix</attribute>
+    </control>
+
+    <control>
+	  <onlydisplayif>this.doorusecustomprefix</onlydisplayif>
+      <caption>[EditorObjectSetupPrefix]</caption>
+      <controltype>textbox</controltype>
+      <attribute>doorprefix</attribute>
+    </control>
+
+	
+	<control>
+	  <onlydisplayif>this.hasdoor</onlydisplayif>
+	  <controltype>checkbox</controltype>
+	  <caption>Door is scenery</caption>
+	  <attribute>doorisscenery</attribute>
+	</control>
+	
+
+
+	<control>
+      <onlydisplayif>this.hasdoor</onlydisplayif>
+      <caption>Custom door description (Default is: "It is open/closed.")</caption>
+      <controltype>multi</controltype>
+      <attribute>doorlook</attribute>
+      <types>
+        null=[TypeNoDescription]; string=[TypeText]; script=[TypeRunScript]
+      </types>
+      <editors>
+        string=richtext
+      </editors>
+    </control>
+	
+	<control>
+	  <onlydisplayif>HasAttribute(this, "doorlook")</onlydisplayif>
+	  <controltype>checkbox</controltype>
+	  <caption>Do not print "It is open/closed." when examining door</caption>
+	  <attribute>doornoprintifopen</attribute>
+	</control>
+	
+	<control>
+      <controltype>script</controltype>
+      <caption>[EditorObjectContainerAfteropening]</caption>
+      <attribute>dooronopen</attribute>
+	  <nullable/>
+    </control>
+	
+	<control>
+	  <onlydisplayif>this.hasdoor</onlydisplayif>
+	  <controltype>checkbox</controltype>
+	  <caption>Add 'first opening door' message to exit script (to print when automatically opening door on exit)</caption>
+	  <attribute>hasdoormsg</attribute>
+	</control>
+	
+	<control>
+	  <caption>Message when opening door before using exit (default is "(You open the door first.)")</caption>
+	  <controltype>textbox</controltype>
+	  <attribute>customdoormsg</attribute>
+	  <onlydisplayif>this.hascustomdoormsg</onlydisplayif>
+	  <nullable/>
+	</control>
+	
+	<control>
+	  <onlydisplayif>this.hasdoormsg</onlydisplayif>
+	  <caption>Use custom message when automatically opening door on exit</caption>
+	  <controltype>checkbox</controltype>
+	  <attribute>hascustomdoormsg</attribute>
+	</control>
+	
+	<control>
+	  <onlydisplayif>this.hasdoor</onlydisplayif>
+	  <controltype>checkbox</controltype>
+	  <caption>Door is lockable</caption>
+	  <attribute>doorislockable</attribute>
+	</control>
+	
+	<control>
+      <controltype>title</controltype>
+      <caption>[EditorObjectContainerLocking]</caption>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+
+    <control>
+      <controltype>number</controltype>
+      <caption>Number of keys to unlock the door</caption>
+      <attribute>doorkeycount</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+      <minimum>0</minimum>
+      <maximum>5</maximum>
+    </control>
+	
+	<control>
+	  <controltype>label</controltype>
+	  <onlydisplayif>this.doorislockable and this.hasotherside</onlydisplayif>
+	  <caption>NOTE:  IF YOU WISH THIS DOOR TO BE UNLOCKABLE FROM THE OTHER SIDE, YOU MUST ALSO ADD
+ANY KEYS YOU WISH TO WORK THE OTHER SIDE OF THIS DOOR TO THE DOOR SETTINGS ON THAT EXIT!!!</caption>
+	</control>
+
+    <control>
+      <controltype>objects</controltype>
+      <caption>[EditorObjectContainerKey]</caption>
+      <attribute>doorkey</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+      <onlydisplayif>GetInt(this, "doorkeycount") > 0</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>objects</controltype>
+      <caption>[EditorObjectContainerKey] 2</caption>
+      <attribute>doorkey2</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+      <onlydisplayif>GetInt(this, "doorkeycount") > 1</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>objects</controltype>
+      <caption>[EditorObjectContainerKey] 3</caption>
+      <attribute>doorkey3</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+      <onlydisplayif>GetInt(this, "doorkeycount") > 2</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>objects</controltype>
+      <caption>[EditorObjectContainerKey] 4</caption>
+      <attribute>doorkey4</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+      <onlydisplayif>GetInt(this, "doorkeycount") > 3</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>objects</controltype>
+      <caption>[EditorObjectContainerKey] 5</caption>
+      <attribute>doorkey5</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+      <onlydisplayif>GetInt(this, "doorkeycount") > 4</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>checkbox</controltype>
+      <caption>[EditorObjectContainerLocked]</caption>
+      <attribute>doorlocked</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>checkbox</controltype>
+      <caption>[EditorObjectContainerAutomatically]</caption>
+      <attribute>doorautounlock</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>checkbox</controltype>
+      <caption>[EditorObjectContainerAutomatically2]</caption>
+      <attribute>doorautoopen</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>textbox</controltype>
+      <caption>[EditorObjectContainerIftheplayer]</caption>
+      <attribute>doornokeymessage</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>textbox</controltype>
+      <caption>[EditorObjectContainerUnlockmessage]</caption>
+      <attribute>doorunlockmessage</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>textbox</controltype>
+      <caption>[EditorObjectContainerLockmessage]</caption>
+      <attribute>doorlockmessage</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>checkbox</controltype>
+      <caption>[EditorObjectContainerCanbelocked]</caption>
+      <attribute>doorcanlockopen</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>script</controltype>
+      <caption>[EditorObjectContainerAfterlocking]</caption>
+      <attribute>dooronlock</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>script</controltype>
+      <caption>[EditorObjectContainerAfterunlocking]</caption>
+      <attribute>dooronunlock</attribute>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control>
+
+    <control>
+      <controltype>label</controltype>
+      <caption>[EditorObjectContainerLockNote]</caption>
+      <onlydisplayif>this.doorislockable</onlydisplayif>
+    </control> 
+	
+  </tab>
+
+
+</library>
