@@ -1,3 +1,3 @@
 # QuestStuff
 
-Visit the [Wiki]([KVonGit/quest5-stuff/wiki](https://github.com/KVonGit/quest5-stuff/wiki)) for info!
+Visit the [Wiki](https://github.com/KVonGit/quest5-stuff/wiki) for info!
