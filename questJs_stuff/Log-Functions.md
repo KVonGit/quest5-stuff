@@ -1,1 +1,0 @@
-Anything sent to the log is redirected to your browser's console log.
