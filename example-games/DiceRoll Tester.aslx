@@ -1,0 +1,29 @@
+<!--Saved by Quest 5.8.7753.35184-->
+<asl version="580">
+  <include ref="English.aslx" />
+  <include ref="Core.aslx" />
+  <game name="DiceRoll Tester">
+    <gameid>9c77bd6e-e5dc-42dc-8e5b-2b98d90c5ee4</gameid>
+    <version>1.0</version>
+    <firstpublished>2024</firstpublished>
+    <customstatuspane type="boolean">false</customstatuspane>
+  </game>
+  <object name="room">
+    <inherit name="editor_room" />
+    <isroom />
+    <object name="player">
+      <inherit name="editor_object" />
+      <inherit name="editor_player" />
+      <statusattributes type="stringdictionary">
+        <item>
+          <key>SkillInitial</key>
+          <value>SkillInitial: !</value>
+        </item>
+      </statusattributes>
+      <feature_startscript />
+      <attr name="_initialise_" type="script">
+        this.SkillInitial = DiceRoll("1d1+6")
+      </attr>
+    </object>
+  </object>
+</asl>
