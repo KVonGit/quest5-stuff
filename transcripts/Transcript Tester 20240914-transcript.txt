@@ -1,0 +1,72 @@
+﻿
+Start of a transcript of:
+TITLE: Transcript Tester 20240914
+AUTHOR: KV
+VERSION: 1.1.9
+IFID: d0e05a3a-53bf-421e-9393-7e094c158cd3
+
+Transcript Tester 20240914
+
+by KV
+
+You are in room.
+You can see a widget.
+You can go north.
+All work and no play makes Jack a dull boy. All work and no play makes Jack a dull boy. All work and no play makes Jack a dull boy. All work and no play makes Jack a dull boy. All work and no play makes Jack a dull boy. All work and no play makes Jack a dull boy.
+
+All work and no play makes Jack a dull boy. All work and no play makes Jack a dull boy.
+
+All work and no play makes Jack a dull boy. 
+
+All work and no play makes Jack a dull boy.
+You pick it up.
+
+This was turn: 1.
+
+
+You are in a hall.
+You can see a big button.
+You can go south.
+All work and no play makes Jack a dull boy. All work and no play makes Jack a dull boy.
+
+All work and no play makes Jack a dull boy.
+
+This was turn: 2.
+
+All work and no play makes Jack a dull boy.
+1: all
+2: work
+3: no
+4: play
+RESULT: play
+
+This was turn: 3.
+
+
+You are in room.
+You can go north.
+All work and no play makes Jack a dull boy. All work and no play makes Jack a dull boy. All work and no play makes Jack a dull boy. All work and no play makes Jack a dull boy. All work and no play makes Jack a dull boy. All work and no play makes Jack a dull boy.
+
+All work and no play makes Jack a dull boy. All work and no play makes Jack a dull boy.
+
+All work and no play makes Jack a dull boy. 
+
+All work and no play makes Jack a dull boy.
+
+This was turn: 4.
+
+The transcript is already enabled.
+End of transcript.
+
+Start of a transcript of:
+TITLE: Transcript Tester 20240914
+AUTHOR: KV
+VERSION: 1.1.9
+IFID: d0e05a3a-53bf-421e-9393-7e094c158cd3
+
+Time passes.
+
+This was turn: 6.
+
+
+Saved: C:\Users\kv\Documents\Quest Games\Transcript Tester 20240914\ttester20240914-20240920.quest-save
