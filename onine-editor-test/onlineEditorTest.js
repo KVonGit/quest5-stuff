@@ -1,0 +1,1 @@
+var gistVar = "It works!";
