@@ -1,1 +1,0 @@
-var gistVar = "It works!";
