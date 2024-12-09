@@ -10,7 +10,7 @@ function look(){
 }
 
 function inventory(){
-  console.log('You aren't carrying anything.');
+  console.log('You aren\'t carrying anything.');
 }
 
 function jump(){
