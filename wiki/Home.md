@@ -1,3 +1,8 @@
+---
+layout: index
+title: Quest 5 Stuff - Wiki Home
+---
+
 NOTE:  I am a crazy person.  Use my code at your own risk!!!
 
 ---
