@@ -5,19 +5,11 @@ var locations = [
   "links"
 ];
 
-function look(){
-  console.log('You are at ' + window.location.href + '.');
-}
+var look = 'You are at ' + window.location.href + '.';
 
-function inventory(){
-  console.log('You aren\'t carrying anything.');
-}
+var inventory = 'You aren\'t carrying anything.';
 
-function jump(){
-  console.log('You jump in place.');
-}
+var jump = 'You jump in place.';
 
-function xyzzy(){
-  console.log('Surprisingly, nothing happens.');
-}
+var xyzzy = 'Surprisingly, nothing happens.';
 
