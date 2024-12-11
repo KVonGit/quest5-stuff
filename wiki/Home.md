@@ -22,4 +22,4 @@ If you're new to Quest, be sure to check out the [helpful links page](Helpful-Li
 
 [How to Add Images to Your Game](Images)
 
-<iframe src="https://github.com/kvongit/quest5-stuff/wiki" width="80%"></iframe>
+<!--<iframe id="index-frame"></iframe>-->
