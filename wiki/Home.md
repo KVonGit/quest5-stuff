@@ -21,3 +21,5 @@ If you're new to Quest, be sure to check out the [helpful links page](Helpful-Li
 [How to Copy Functions from Code View to the Web Editor **(ALSO WORKS IN DESKTOP)**](Copying-Functions-from-Code-View-to-the-Web-Editor)
 
 [How to Add Images to Your Game](Images)
+
+<iframe src="Hitchhiker's-Guide-Gag"></iframe>
