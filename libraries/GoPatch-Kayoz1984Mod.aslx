@@ -1,15 +1,11 @@
 <?xml version="1.0"?>
 <!--
-    GoPatch
-    v1.0.1
+    GoPatch modified for Kayoz1984
+    v1.0.0
     For Quest 5.8
     Adds option to override go command
-    (This functionality exists in the WebEditor app, and this is the same code.)
+    (This functionality exists in the WebEditor app, and this is a slightly modified version of that code. See GH Discussion #1291)
     
-    HOW TO USE THIS:
-    If the `game.pov` object has a "notallowedtoexit" string attribute,
-    that string will print when attempting to go anywhere, and the attempt
-    to exit will fail.
 -->
 <library>
   <command name="go" pattern="[go]" unresolved="[UnresolvedLocation]">
@@ -53,8 +49,12 @@
       msg(game.pov.notallowedtoexit)
       return (false)
     }
-    else {
+    else if (game.pov.move > 0) {
       return (true)
+    }
+    else {
+      msg ("You are too tired to move. You should rest first.")
+      return (false)
     }
   </function>
 </library>
