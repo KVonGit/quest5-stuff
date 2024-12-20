@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<!--
+    GoModLib
+    v1.0.0
+    For Quest 5.8
+    Adds option to override go command
+    (This functionality exists in the WebEditor app, and this is the same code.)
+    
+    HOW TO USE THIS:
+    If the `game.pov` object has a "notallowedtoexit" string attribute,
+    that string will print when attempting to go anywhere, and the attempt
+    to exit will fail.
+-->
+<library>
+  <command name="go" pattern="[go]" unresolved="[UnresolvedLocation]">
+    if (exit.visible) {
+      if (exit.locked) {
+        msg (exit.lockmessage)
+      }
+      else if (not TestExitGlobal(exit)) {
+        // Do nothing, already handled
+      }
+      else if (exit.runscript) {
+        if (HasScript(exit, "script")) {
+          do (exit, "script")
+        }
+      }
+      else if (exit.lookonly) {
+         msg (Template("UnresolvedLocation"))
+      } 
+      else {
+        if (HasString(exit, "message")) {
+          if (not exit.message = "") {
+            if (game.clearscreenonroomenter) {
+              game.currentexitmessage = exit.message
+            }
+            else {
+              msg(exit.message)
+            }
+          }
+        }
+        game.pov.parent = exit.to
+      }   
+    } 
+    else {   
+      msg (Template("UnresolvedLocation"))
+    }
+  </command>
+
+
+  <function name="TestExitGlobal" parameters="exit" type="boolean">
+    if (HasString(game.pov, "notallowedtoexit")) {
+      msg(game.pov.notallowedtoexit)
+      return (false)
+    }
+    else {
+      return (true)
+    }
+  </function>
+</library>
