@@ -4,9 +4,9 @@
 <!--
 
 NauticalDirectionsLib
-Version: 1.1
+Version: 1.2
 By: KV
-Quest version: 5.7.2
+Quest version: 5.9
 Special thanks: Doctor Agon and The Pixie
 
 
@@ -34,13 +34,10 @@ IMPORTANT:
 
 	ADD THE FOLLOWING 2 LINES TO THE GAME OBJECT'S inituserinterface
 		
-		SendToJsEval (js.description)
+		JS.eval (js.description)
 		JS.changeCompass ()
 
 -->
-
-
-
 
   <turnscript name="nautical_buttons">
     <enabled />
@@ -56,7 +53,7 @@ IMPORTANT:
   </turnscript>
 
   <object name="js">
-    <description><![CDATA[var onBoard = false;<br/><br/>var shipButtons = '<div id="dir-holder" style="display:none;"><div id="ship-nav"><table id="ship-directions"><tr><td></td><td>';<br/>shipButtons += '<button id="cmdCompassF" class="shipcompassbutton compassbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-icon-primary" type="button" title="fore" onclick="compassClick(\'fore\');" role="button"><span class="ui-button-icon-primary ui-icon ui-icon-arrowthick-1-n" style="left: 0.8em;"></span><span class="ui-button-text" style="left: 0.8em;"></span></button></td></tr>';<br/>shipButtons += '<tr><td><button id="cmdCompassP" class="shipcompassbutton compassbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-icon-primary" type="button" title="port" onclick="compassClick(\'port\');" role="button"><span class="ui-button-icon-primary ui-icon ui-icon-arrowthick-1-w" style="left: 0.8em;"></span><span class="ui-button-text" style="left: 0.8em;"></span></td><td></td><td></button>';<br/>shipButtons += '<button id="cmdCompassSB" class="shipcompassbutton compassbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-icon-primary" type="button" title="starboard" onclick="compassClick(\'starboard\');" role="button"><span class="ui-button-icon-primary ui-icon ui-icon-arrowthick-1-e" style="left: 0.8em;"></span><span class="ui-button-text" style="left: 0.8em;"></span></button></td></tr>';<br/>shipButtons += '<tr><td></td><td><button id="cmdCompassA" class="shipcompassbutton compassbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-icon-primary" type="button" title="aft" onclick="compassClick(\'aft\');" role="button" ><span class="ui-button-icon-primary ui-icon ui-icon-arrowthick-1-s" style="left: 0.8em;"></span><span class="ui-button-text" style="left: 0.8em;"></span></button></td></tr></table>';<br/>shipButtons += '</div></div>';<br/><br/>function changeCompass(){<br/>  addText(shipButtons);$("#ship-directions").css("border-spacing","0");<br/>  $("#cmdCompassNW").parent().parent().parent().attr('id','def-nav');<br/>  $('#ship-nav').hide();$('#def-nav').parent().append($('#dir-holder').html());<br/>  $(".shipcompassbutton").each(function(){<br/>    $(this).button().button("enable").button("disable");<br/>    $(".shipcompassbutton span").css("left", "0.8em");$(".shipcompassbutton .ui-button-text").css('padding','.8em .8em');<br/>  });<br/>};<br/><br/>function toggleNav(){<br/>  $("#def-nav, #ship-nav").toggle()<br/>};<br/><br/>function updateShipCompass(data){<br/>  var exits = data.split("/");<br/>  $(".shipcompassbutton").each(function(){<br/>    for (var exit in exits){<br/>      if($(this).attr('title') === exits[exit]){<br/>        $(this).button("enable");<br/>        break;<br/>      }else{<br/>        $(this).button("disable");<br/>      }<br/>    }<br/>  });<br/>};<br/>]]></description>
+    <description><![CDATA[var onBoard = false; var shipButtons = '<div id="dir-holder" style="display:none;"><div id="ship-nav"><table id="ship-directions"><tr><td></td><td>'; shipButtons += '<button id="cmdCompassF" class="shipcompassbutton compassbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-icon-primary" type="button" title="fore" onclick="compassClick(\'fore\');" role="button"><span class="ui-button-icon-primary ui-icon ui-icon-arrowthick-1-n" style="left: 0.8em;"></span><span class="ui-button-text" style="left: 0.8em;"></span></button></td></tr>'; shipButtons += '<tr><td><button id="cmdCompassP" class="shipcompassbutton compassbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-icon-primary" type="button" title="port" onclick="compassClick(\'port\');" role="button"><span class="ui-button-icon-primary ui-icon ui-icon-arrowthick-1-w" style="left: 0.8em;"></span><span class="ui-button-text" style="left: 0.8em;"></span></td><td></td><td></button>'; shipButtons += '<button id="cmdCompassSB" class="shipcompassbutton compassbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-icon-primary" type="button" title="starboard" onclick="compassClick(\'starboard\');" role="button"><span class="ui-button-icon-primary ui-icon ui-icon-arrowthick-1-e" style="left: 0.8em;"></span><span class="ui-button-text" style="left: 0.8em;"></span></button></td></tr>'; shipButtons += '<tr><td></td><td><button id="cmdCompassA" class="shipcompassbutton compassbutton ui-button ui-widget ui-state-default ui-corner-all ui-button-text-icon-primary" type="button" title="aft" onclick="compassClick(\'aft\');" role="button" ><span class="ui-button-icon-primary ui-icon ui-icon-arrowthick-1-s" style="left: 0.8em;"></span><span class="ui-button-text" style="left: 0.8em;"></span></button></td></tr></table>'; shipButtons += '</div></div>';  function changeCompass(){   addText(shipButtons);$("#ship-directions").css("border-spacing","0");   $("#cmdCompassNW").parent().parent().parent().attr('id','def-nav');   $('#ship-nav').hide();$('#def-nav').parent().append($('#dir-holder').html());   $(".shipcompassbutton").each(function(){     $(this).button().button("enable").button("disable");     $(".shipcompassbutton span").css("left", "0.8em"); $(".shipcompassbutton .ui-button-text").css('padding','.8em .8em');   }); };  function toggleNav(){   $("#def-nav, #ship-nav").toggle() };  function updateShipCompass(data){   var exits = data.split("/");   $(".shipcompassbutton").each(function(){     for (var exit in exits){       if($(this).attr('title') === exits[exit]){         $(this).button("enable");         break;       }else{         $(this).button("disable");       }     }   }); }; ]]></description>
     <attr name="feature_startscript" type="boolean">false</attr>
     <attr name="_initialise_" type="script">
     </attr>
@@ -150,49 +147,14 @@ IMPORTANT:
     }
   ]]></function>
 
-  <function name="SendToJsEval" parameters="data"><![CDATA[
-    regEx = "//"
-    js = Split(data,"<br/>")
-    notes = NewStringList()
-    foreach (line, js) {
-      if (StartsWith(line,"//")) {
-        list add (notes, line)
-      }
-    }
-    js = ListExclude(js,notes)
-    finaljs = NewStringList()
-    foreach (line, js) {
-      code = line
-      if (IsRegExMatch(regEx,line)) {
-        list = Split(line,"//")
-        code = list[0]
-      }
-      list add (finaljs, code)
-    }
-    js = Join(finaljs,"")
-    js = Replace(js, "[br]", "<br/>")
-    js = Replace(js, "[br/]", "<br/>")
-    js = Replace(js, "[break]", "<br/>")
-    js = Replace(js, "[linebreak]", "<br/>")
-    js = Replace(js, "[line break]", "<br/>")
-    JS.eval (js)
-  ]]></function>
-
-  <verb name="enter_verb">
-    <pattern>enter #object#;get in #object#;get into #object#</pattern>
-    <defaultexpression>"You can't enter " + object.article + "."</defaultexpression>
-    <property>enter_verb</property>
-  </verb>
-  
   <!--
-  
   TODO: 
 	Add tabs so simplify setup.
 	
 	Fix the CSS on the compass. The buttons are a little too far apart.
   -->
 
-<!-- Fix ReverseDirection() and NiceDirection() -->
+<!-- Modified ReverseDirection() and NiceDirection() -->
 
   <function name="ReverseDirection" parameters="dir" type="string">
     list1 = Split("north;northeast;east;southeast;south;southwest;west;northwest;up;down;in;out;fore;port;starboard;aft", ";")
@@ -204,40 +166,48 @@ IMPORTANT:
     return (dir)
   </function>
 
-	<function name="NiceDirection" parameters="exit, addthe" type="string">
-	   switch (exit.alias) {
-		 case ("in") { s = "inside" }
-		 case ("out") { s = "outside" }
-		 case ("up") { s = "above" }
-		 case ("down") { s = "below" }
-		  //Added by KV for Nautical Directions:
-		  case ("starboard") {
-			s = "port"
-			addthe = false
-		  }
-		  case ("port") {
-			s = "starboard"
-			addthe = false
-		  }
-		  case ("aft") {
-			s = "fore"
-			addthe = false
-		  }
-		  case ("fore") {
-			s = "aft"
-			addthe = false
-		  }
-		  // End of KV's addition
-		 default {
-		   if (addthe) {
-			 s = "the " + exit.alias
-		   }
-		   else {
-			 s = exit.alias
-		   }
-		 }
-	   }
-	   return (s)
-	 </function>
+  <function name="NiceDirection" parameters="exit, addthe" type="string">
+    switch (exit.alias) {
+      case ("in") {
+        s = "inside"
+      }
+      case ("out") {
+        s = "outside"
+      }
+      case ("up") {
+        s = "above"
+      }
+      case ("down") {
+        s = "below"
+      }
+      //Added by KV for Nautical Directions:
+      case ("starboard") {
+        s = "port"
+        addthe = false
+      }
+      case ("port") {
+        s = "starboard"
+        addthe = false
+      }
+      case ("aft") {
+        s = "fore"
+        addthe = false
+      }
+      case ("fore") {
+        s = "aft"
+        addthe = false
+      }
+      // End of KV's addition
+      default {
+        if (addthe) {
+          s = "the " + exit.alias
+        }
+        else {
+          s = exit.alias
+        }
+      }
+    }
+    return (s)
+  </function>
   
-  </library>
+</library>
